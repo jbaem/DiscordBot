@@ -117,6 +117,7 @@ DiscordBot/
 ├── .gitignore
 ├── package.json              # 프로젝트 의존성 및 실행 스크립트
 ├── README.md                 # 프로젝트 설명서
+├── CONVENTIONS.md            # 개발 표준 및 AI 연동 컨벤션 가이드
 └── src/
     ├── index.js              # 봇 진입점 (Intents 및 클라이언트 시작)
     ├── config.js             # 환경 변수 로더
