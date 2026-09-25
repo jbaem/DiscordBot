@@ -1,0 +1,26 @@
+{
+  "name": "discordbot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jbaem/DiscordBot.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/jbaem/DiscordBot/issues"
+  },
+  "homepage": "https://github.com/jbaem/DiscordBot#readme",
+  "dependencies": {
+    "discord.js": "^14.27.0",
+    "dotenv": "^18.0.4"
+  }
+}
