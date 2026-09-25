@@ -29,10 +29,14 @@ export default {
             '• `/slowmode <초>` : 채팅 슬로우 모드 설정 (0초는 해제)',
         },
         {
-          name: '👋 멤버 입장 / 퇴장 & 자동 역할',
+          name: '👋 멤버 입장 / 퇴장 채널 및 메시지 커스텀',
           value:
-            '• 새 멤버가 서버에 들어오면 환영 채널에 메시지 전송 및 기본 역할이 자동 지급됩니다.\n' +
-            '• 멤버가 서버를 떠나면 퇴장 알림 채널에 기록됩니다.',
+            '• `/welcome channel <채널>` : 입장(환영) 알림을 보낼 텍스트 채널 지정\n' +
+            '• `/welcome message <문구>` : 환영 메시지 커스텀 ({user}, {userName}, {server}, {count} 변수 지원)\n' +
+            '• `/welcome view` / `/welcome test` / `/welcome disable` : 입장 알림 확인 / 테스트 / 비활성화\n' +
+            '• `/leave channel <채널>` : 퇴장 알림을 보낼 텍스트 채널 지정\n' +
+            '• `/leave message <문구>` : 퇴장 메시지 커스텀 문구 설정\n' +
+            '• `/leave view` / `/leave test` / `/leave disable` : 퇴장 알림 확인 / 테스트 / 비활성화',
         },
         {
           name: '⚙️ 일반',

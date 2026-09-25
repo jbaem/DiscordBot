@@ -1,8 +1,9 @@
-import { EmbedBuilder } from 'discord.js';
+import { EmbedBuilder, Events } from 'discord.js';
 import { config } from '../config.js';
+import { settingsManager } from '../utils/settingsManager.js';
 
 export default {
-  name: 'guildMemberAdd',
+  name: Events.GuildMemberAdd,
   async execute(member) {
     console.log(`[Member] 신규 멤버 입장: ${member.user.tag}`);
 
@@ -21,15 +22,23 @@ export default {
       }
     }
 
-    // 2. 환영 메시지 전송
-    if (config.welcomeChannelId) {
+    // 2. 환영 메시지 전송 (동적 설정 반영)
+    const settings = settingsManager.getGuildSettings(member.guild.id);
+    const welcomeChannelId = settings.welcomeChannelId || config.welcomeChannelId;
+
+    if (welcomeChannelId) {
       try {
-        const channel = member.guild.channels.cache.get(config.welcomeChannelId);
+        const channel = member.guild.channels.cache.get(welcomeChannelId);
         if (channel && channel.isTextBased()) {
+          const descriptionText = settingsManager.formatMessage(settings.welcomeMessage, {
+            member,
+            guild: member.guild,
+          });
+
           const embed = new EmbedBuilder()
             .setColor(0x57F287)
             .setTitle('🎉 새로운 멤버가 입장했습니다!')
-            .setDescription(`환영합니다, **${member}** 님! 서버에 오신 것을 환영해요.`)
+            .setDescription(descriptionText)
             .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
             .addFields(
               { name: '👤 유저명', value: member.user.tag, inline: true },
