@@ -56,12 +56,12 @@ export default {
         .setTitle('✏️ 닉네임 변경')
         .setThumbnail(newMember.displayAvatarURL({ size: 128 }))
         .addFields(
-          { name: '👤 유저', value: `${newMember} (${newMember.user.tag})`, inline: false },
+          { name: '👤 유저', value: `${newMember}`, inline: false },
           { name: '변경 전', value: before, inline: true },
           { name: '변경 후', value: after, inline: true },
           { name: '🕒 변경 시각', value: `<t:${sec}:F> (<t:${sec}:R>)`, inline: false }
         )
-        .setFooter({ text: `유저 ID: ${newMember.id}` })
+        .setFooter({ text: guild.name })
         .setTimestamp(changedAt);
 
       await channel.send({ embeds: [embed] });
