@@ -18,9 +18,40 @@ if (!fs.existsSync(settingsFilePath)) {
   fs.writeFileSync(settingsFilePath, JSON.stringify({}, null, 2), 'utf-8');
 }
 
+/** 기본 입장/퇴장 문구 (멤버 수 대신 임베드 필드로 입장/퇴장 시각을 표시) */
+export const DEFAULT_WELCOME_MESSAGE = '환영합니다, {user} 님! **{server}**에 오신 것을 환영해요.';
+export const DEFAULT_LEAVE_MESSAGE = '**{userName}** 님이 서버를 떠났습니다.';
+
+/** 예전 버전의 기본 문구 — 서버가 직접 바꾼 적 없이 그대로 쓰고 있으면 새 기본 문구로 자동 교체 */
+const LEGACY_DEFAULTS = {
+  welcomeMessage: ['환영합니다, {user} 님! **{server}**에 오신 것을 환영해요. (현재 멤버 수: {count}명)'],
+  leaveMessage: ['**{userName}** 님이 서버를 떠났습니다. (남은 멤버 수: {count}명)'],
+};
+
 class SettingsManager {
   constructor() {
     this.cache = this.loadFromFile();
+    this.migrateLegacyDefaults();
+  }
+
+  /** 예전 기본 문구를 그대로 쓰는 서버의 설정을 새 기본 문구로 교체 */
+  migrateLegacyDefaults() {
+    let changed = false;
+    for (const settings of Object.values(this.cache)) {
+      if (!settings || typeof settings !== 'object') continue;
+      if (LEGACY_DEFAULTS.welcomeMessage.includes(settings.welcomeMessage)) {
+        settings.welcomeMessage = DEFAULT_WELCOME_MESSAGE;
+        changed = true;
+      }
+      if (LEGACY_DEFAULTS.leaveMessage.includes(settings.leaveMessage)) {
+        settings.leaveMessage = DEFAULT_LEAVE_MESSAGE;
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.saveToFile();
+      console.log('[Settings] 예전 기본 입장/퇴장 문구를 새 기본 문구로 교체했습니다.');
+    }
   }
 
   loadFromFile() {
@@ -47,9 +78,9 @@ class SettingsManager {
         joinToCreateChannelId: config.joinToCreateChannelId || null,
         voiceNameTemplate: '🔊 {userName}님의 통화방',
         welcomeChannelId: config.welcomeChannelId || null,
-        welcomeMessage: '환영합니다, {user} 님! **{server}**에 오신 것을 환영해요. (현재 멤버 수: {count}명)',
+        welcomeMessage: DEFAULT_WELCOME_MESSAGE,
         leaveChannelId: config.leaveChannelId || null,
-        leaveMessage: '**{userName}** 님이 서버를 떠났습니다. (남은 멤버 수: {count}명)',
+        leaveMessage: DEFAULT_LEAVE_MESSAGE,
         autoRoleId: config.autoRoleId || null, // 신규 멤버 자동 역할 (null: 비활성화)
         nicknameLogChannelId: null, // 닉네임 변경 로그 채널 (null: 비활성화)
         reactionRoles: [], // 이모지 반응 역할 매핑 [{ roleId, emojiKey, emojiId, emojiName, animated, description }]

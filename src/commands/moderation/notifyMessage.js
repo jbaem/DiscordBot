@@ -21,7 +21,7 @@ export default {
         .addStringOption(opt =>
           opt
             .setName('문구')
-            .setDescription('메시지 템플릿 ({user}, {userName}, {server}, {count}, {joinCount}, {isRejoin} 등)')
+            .setDescription('메시지 템플릿 ({user}, {userName}, {server}, {joinedAt}, {joinCount}, {isRejoin} 등)')
             .setRequired(true)
             .setMaxLength(1000)
         )
@@ -33,7 +33,7 @@ export default {
         .addStringOption(opt =>
           opt
             .setName('문구')
-            .setDescription('메시지 템플릿 ({user}, {userName}, {server}, {count}, {joinedAt}, {accountAge} 등)')
+            .setDescription('메시지 템플릿 ({user}, {userName}, {server}, {joinedAt}, {accountAge} 등)')
             .setRequired(true)
             .setMaxLength(1000)
         )
