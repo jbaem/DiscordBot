@@ -36,7 +36,26 @@ export default {
             Routes.applicationCommands(config.clientId),
             { body: commandsData }
           );
-          console.log(`[SlashCommands] ✅ 전역(Global) 슬래시 명령어 등록 완료!`);
+          console.log(`[SlashCommands] ✅ 전역(Global) 슬래시 명령어 등록 완료! (새 서버에는 반영까지 몇 분 걸릴 수 있습니다)`);
+
+          // 예전에 GUILD_ID 로 개발 서버에 등록해 둔 서버 단위 명령어가 남아 있으면
+          // 전역 명령어와 중복 표시되므로, 참여 중인 모든 서버의 서버 단위 명령어를 비운다.
+          let cleared = 0;
+          for (const guild of client.guilds.cache.values()) {
+            try {
+              const existing = await rest.get(Routes.applicationGuildCommands(config.clientId, guild.id));
+              if (Array.isArray(existing) && existing.length > 0) {
+                await rest.put(Routes.applicationGuildCommands(config.clientId, guild.id), { body: [] });
+                cleared++;
+                console.log(`[SlashCommands] 🧹 ${guild.name}(${guild.id}) 의 서버 단위 명령어 ${existing.length}개 정리 (전역 명령어와 중복 방지)`);
+              }
+            } catch (error) {
+              console.warn(`[SlashCommands] ⚠️ ${guild.name}(${guild.id}) 서버 단위 명령어 정리 실패:`, error.message);
+            }
+          }
+          if (cleared === 0) {
+            console.log('[SlashCommands] 서버 단위 명령어 잔재 없음');
+          }
         }
       } catch (error) {
         console.error('[SlashCommands] ❌ 슬래시 명령어 등록 중 오류 발생:', error);
