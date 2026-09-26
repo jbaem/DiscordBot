@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } from 'discord.js';
 import { settingsManager } from '../../utils/settingsManager.js';
+import { memberHistoryManager } from '../../utils/memberHistoryManager.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -25,7 +26,7 @@ export default {
         .addStringOption(opt =>
           opt
             .setName('text')
-            .setDescription('메시지 템플릿 ({user}: 멘션, {userName}: 이름, {server}: 서버명, {count}: 멤버수)')
+            .setDescription('메시지 템플릿 ({user}, {userName}, {server}, {count}, {joinedAt}, {joinCount}, {isRejoin} 등)')
             .setRequired(true)
             .setMaxLength(1000)
         )
@@ -81,7 +82,7 @@ export default {
           { name: '📝 설정된 원본 템플릿', value: `\`\`\`${newText}\`\`\`` },
           { name: '👀 미리보기 (현재 관리자 기준)', value: preview }
         )
-        .setFooter({ text: '지원 변수: {user}(멘션), {userName}(닉네임), {server}(서버이름), {count}(멤버수)' })
+        .setFooter({ text: '지원 변수: {user}, {userName}, {userTag}, {userId}, {server}, {count}, {joinedAt}, {joinedAtRelative}, {createdAt}, {accountAge}, {joinCount}, {isRejoin}' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });
@@ -102,7 +103,7 @@ export default {
           { name: '📝 설정된 템플릿', value: `\`\`\`${settings.welcomeMessage || '없음'}\`\`\`` },
           { name: '👀 실제 출력 예시', value: preview || '없음' }
         )
-        .setFooter({ text: '지원 변수: {user}, {userName}, {server}, {count}' })
+        .setFooter({ text: '지원 변수: {user}, {userName}, {userTag}, {userId}, {server}, {count}, {joinedAt}, {joinedAtRelative}, {createdAt}, {accountAge}, {joinCount}, {isRejoin}' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });
@@ -124,19 +125,25 @@ export default {
         });
       }
 
+      // 실제 입장 알림과 동일한 형태로 미리보기 (입장 횟수 포함)
+      const joinCount = memberHistoryManager.getJoinCount(guildId, interaction.user.id);
+      const isRejoinText = joinCount > 1 ? `⚠️ 재입장 (${joinCount}회차)` : '✨ 최초 입장';
+
       const formatted = settingsManager.formatMessage(settings.welcomeMessage, {
         member: interaction.member,
         guild: interaction.guild,
+        joinCount,
       });
 
       const testEmbed = new EmbedBuilder()
-        .setColor(0x57F287)
-        .setTitle('🎉 새로운 멤버가 입장했습니다! (테스트)')
+        .setColor(joinCount > 1 ? 0xFEE75C : 0x57F287)
+        .setTitle(joinCount > 1 ? '🔁 멤버가 다시 입장했습니다 (테스트)' : '🎉 새로운 멤버가 입장했습니다! (테스트)')
         .setDescription(formatted)
         .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true, size: 256 }))
         .addFields(
           { name: '👤 유저명', value: interaction.user.tag, inline: true },
-          { name: '👥 현재 서버 멤버 수', value: `${interaction.guild.memberCount}명`, inline: true }
+          { name: '👥 현재 서버 멤버 수', value: `${interaction.guild.memberCount}명`, inline: true },
+          { name: '📊 입장 횟수', value: isRejoinText, inline: true }
         )
         .setFooter({ text: `테스트 발송 by ${interaction.user.tag}` })
         .setTimestamp();

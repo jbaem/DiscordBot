@@ -1,11 +1,15 @@
 import { EmbedBuilder, Events } from 'discord.js';
 import { config } from '../config.js';
 import { settingsManager } from '../utils/settingsManager.js';
+import { memberHistoryManager } from '../utils/memberHistoryManager.js';
 
 export default {
   name: Events.GuildMemberAdd,
   async execute(member) {
     console.log(`[Member] 신규 멤버 입장: ${member.user.tag}`);
+
+    // 입장 횟수(들낙) 카운트 기록
+    const joinCount = memberHistoryManager.recordJoin(member.guild.id, member.id);
 
     // 1. 자동 역할 부여
     if (config.autoRoleId) {
@@ -33,16 +37,20 @@ export default {
           const descriptionText = settingsManager.formatMessage(settings.welcomeMessage, {
             member,
             guild: member.guild,
+            joinCount,
           });
 
+          const isRejoinText = joinCount > 1 ? `⚠️ 재입장 (${joinCount}회차)` : '✨ 최초 입장';
+
           const embed = new EmbedBuilder()
-            .setColor(0x57F287)
-            .setTitle('🎉 새로운 멤버가 입장했습니다!')
+            .setColor(joinCount > 1 ? 0xFEE75C : 0x57F287)
+            .setTitle(joinCount > 1 ? '🔁 멤버가 다시 입장했습니다' : '🎉 새로운 멤버가 입장했습니다!')
             .setDescription(descriptionText)
             .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
             .addFields(
               { name: '👤 유저명', value: member.user.tag, inline: true },
-              { name: '👥 현재 서버 멤버 수', value: `${member.guild.memberCount}명`, inline: true }
+              { name: '👥 현재 서버 멤버 수', value: `${member.guild.memberCount}명`, inline: true },
+              { name: '📊 입장 횟수', value: isRejoinText, inline: true }
             )
             .setFooter({ text: `유저 ID: ${member.id}` })
             .setTimestamp();

@@ -25,7 +25,7 @@ export default {
         .addStringOption(opt =>
           opt
             .setName('text')
-            .setDescription('메시지 템플릿 ({user}: 멘션, {userName}: 이름, {server}: 서버명, {count}: 멤버수)')
+            .setDescription('메시지 템플릿 ({user}, {userName}, {server}, {count}, {joinedAt}, {accountAge}, {joinCount} 등)')
             .setRequired(true)
             .setMaxLength(1000)
         )
@@ -81,7 +81,7 @@ export default {
           { name: '📝 설정된 원본 템플릿', value: `\`\`\`${newText}\`\`\`` },
           { name: '👀 미리보기 (현재 관리자 기준)', value: preview }
         )
-        .setFooter({ text: '지원 변수: {user}(멘션), {userName}(닉네임), {server}(서버이름), {count}(멤버수)' })
+        .setFooter({ text: '지원 변수: {user}, {userName}, {userTag}, {userId}, {server}, {count}, {joinedAt}, {joinedAtRelative}, {createdAt}, {accountAge}, {joinCount}, {isRejoin}' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });
@@ -102,7 +102,7 @@ export default {
           { name: '📝 설정된 템플릿', value: `\`\`\`${settings.leaveMessage || '없음'}\`\`\`` },
           { name: '👀 실제 출력 예시', value: preview || '없음' }
         )
-        .setFooter({ text: '지원 변수: {user}, {userName}, {server}, {count}' })
+        .setFooter({ text: '지원 변수: {user}, {userName}, {userTag}, {userId}, {server}, {count}, {joinedAt}, {joinedAtRelative}, {createdAt}, {accountAge}, {joinCount}, {isRejoin}' })
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });

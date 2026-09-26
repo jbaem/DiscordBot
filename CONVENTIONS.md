@@ -34,6 +34,7 @@ DiscordBot/
 ├── package.json              # 패키지 명세 (ESM 설정 및 스크립트)
 ├── README.md                 # 사용자 안내 및 설정 문서
 ├── CONVENTIONS.md            # 본 컨벤션 문서
+├── data/                     # [런타임] 서버별 설정 및 멤버 이력 JSON (Git 추적 제외, .gitkeep만 커밋)
 └── src/
     ├── index.js              # 애플리케이션 진입점 및 클라이언트 생성
     ├── config.js             # 환경 변수 유효성 검증 및 중앙 제공

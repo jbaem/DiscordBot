@@ -1,11 +1,16 @@
 import { EmbedBuilder, Events } from 'discord.js';
 import { config } from '../config.js';
 import { settingsManager } from '../utils/settingsManager.js';
+import { memberHistoryManager } from '../utils/memberHistoryManager.js';
 
 export default {
   name: Events.GuildMemberRemove,
   async execute(member) {
     console.log(`[Member] 멤버 퇴장: ${member.user.tag}`);
+
+    // 퇴장 기록
+    memberHistoryManager.recordLeave(member.guild.id, member.id);
+    const joinCount = memberHistoryManager.getJoinCount(member.guild.id, member.id);
 
     const settings = settingsManager.getGuildSettings(member.guild.id);
     const targetChannelId = settings.leaveChannelId || config.leaveChannelId;
@@ -17,6 +22,7 @@ export default {
         const descriptionText = settingsManager.formatMessage(settings.leaveMessage, {
           member,
           guild: member.guild,
+          joinCount,
         });
 
         const embed = new EmbedBuilder()

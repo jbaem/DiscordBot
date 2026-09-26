@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
+import { memberHistoryManager } from './memberHistoryManager.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -64,14 +65,44 @@ class SettingsManager {
 
   /**
    * 템플릿 메시지의 변수를 실제 값으로 치환
+   * @param {string} template 치환할 템플릿 문자열
+   * @param {object} context
+   * @param {import('discord.js').GuildMember} context.member 대상 멤버
+   * @param {import('discord.js').Guild} context.guild 대상 서버
+   * @param {number} [context.joinCount] 입장 횟수 (미지정 시 memberHistoryManager에서 조회)
    */
-  formatMessage(template, { member, guild }) {
+  formatMessage(template, { member, guild, joinCount }) {
     if (!template) return '';
+
+    const user = member.user || {};
+    const joinedTimestamp = member.joinedTimestamp || Date.now();
+    const createdTimestamp = user.createdTimestamp || Date.now();
+    const now = Date.now();
+
+    // 계정 생성 후 지난 일수 계산
+    const accountAgeDays = Math.max(0, Math.floor((now - createdTimestamp) / (1000 * 60 * 60 * 24)));
+
+    // 디스코드 유닉스 타임스탬프 (초 단위)
+    const joinedSec = Math.floor(joinedTimestamp / 1000);
+    const createdSec = Math.floor(createdTimestamp / 1000);
+
+    // 입장 횟수 (들낙 카운트)
+    const joinCountNum = joinCount || memberHistoryManager.getJoinCount(guild.id, member.id);
+    const isRejoinText = joinCountNum > 1 ? `재입장 (${joinCountNum}회차)` : '최초 입장';
+
     return template
       .replace(/{user}/g, `<@${member.id}>`)
-      .replace(/{userName}/g, member.user?.username || member.displayName || '알 수 없음')
-      .replace(/{server}/g, guild.name)
-      .replace(/{count}/g, guild.memberCount?.toString() || '0');
+      .replace(/{userName}/g, member.displayName || user.username || '알 수 없음')
+      .replace(/{userTag}/g, user.tag || user.username || '알 수 없음')
+      .replace(/{userId}/g, member.id || '')
+      .replace(/{server}/g, guild.name || '')
+      .replace(/{count}/g, (guild.memberCount || 0).toLocaleString())
+      .replace(/{joinedAt}/g, `<t:${joinedSec}:f>`)
+      .replace(/{joinedAtRelative}/g, `<t:${joinedSec}:R>`)
+      .replace(/{createdAt}/g, `<t:${createdSec}:D>`)
+      .replace(/{accountAge}/g, `${accountAgeDays}일`)
+      .replace(/{joinCount}/g, joinCountNum.toString())
+      .replace(/{isRejoin}/g, isRejoinText);
   }
 }
 
