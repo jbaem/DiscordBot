@@ -1,21 +1,29 @@
-import { ChannelType, PermissionFlagsBits } from 'discord.js';
+import { ChannelType, PermissionFlagsBits, Events } from 'discord.js';
 import { config } from '../config.js';
 import { tempVoiceManager } from '../utils/tempVoiceManager.js';
+import { settingsManager } from '../utils/settingsManager.js';
 
 export default {
-  name: 'voiceStateUpdate',
+  name: Events.VoiceStateUpdate,
   async execute(oldState, newState) {
     const member = newState.member || oldState.member;
     if (!member || member.user.bot) return;
 
+    const guild = newState.guild || oldState.guild;
+    const settings = settingsManager.getGuildSettings(guild.id);
+    const triggerChannelId = settings.joinToCreateChannelId || config.joinToCreateChannelId;
+
     // 1. Join-to-Create: 생성 채널에 접속했을 때
-    if (config.joinToCreateChannelId && newState.channelId === config.joinToCreateChannelId) {
-      const guild = newState.guild;
+    if (triggerChannelId && newState.channelId === triggerChannelId) {
       const triggerChannel = newState.channel;
       const parentId = triggerChannel ? triggerChannel.parentId : null;
 
       try {
-        const channelName = `🔊 ${member.displayName}님의 통화방`;
+        const nameTemplate = settings.voiceNameTemplate || '🔊 {userName}님의 통화방';
+        const channelName = nameTemplate
+          .replace(/{user}/g, member.displayName)
+          .replace(/{userName}/g, member.displayName)
+          .replace(/{server}/g, guild.name);
 
         // 새 개인 임시 음성 채널 생성
         const newVoiceChannel = await guild.channels.create({

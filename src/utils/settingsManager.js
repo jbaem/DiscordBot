@@ -43,6 +43,8 @@ class SettingsManager {
   getGuildSettings(guildId) {
     if (!this.cache[guildId]) {
       this.cache[guildId] = {
+        joinToCreateChannelId: config.joinToCreateChannelId || null,
+        voiceNameTemplate: '🔊 {userName}님의 통화방',
         welcomeChannelId: config.welcomeChannelId || null,
         welcomeMessage: '환영합니다, {user} 님! **{server}**에 오신 것을 환영해요. (현재 멤버 수: {count}명)',
         leaveChannelId: config.leaveChannelId || null,

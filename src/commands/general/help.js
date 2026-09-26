@@ -13,12 +13,14 @@ export default {
         {
           name: '🔊 임시 음성 채널 (Join-to-Create)',
           value:
-            '• 지정된 생성 채널에 접속하면 전용 음성방이 자동 생성됩니다.\n' +
-            '• 마지막 유저가 퇴장하면 방이 자동으로 정리(삭제)됩니다.\n' +
-            '• `/voice name <이름>` : 내 음성방 이름 변경\n' +
-            '• `/voice limit <인원수>` : 내 음성방 입장 인원 제한 (0은 무제한)\n' +
-            '• `/voice lock` : 내 음성방 잠금 (다른 유저 입장 차단)\n' +
-            '• `/voice unlock` : 내 음성방 잠금 해제',
+            '• `/autovoice setup` : 전용 카테고리 및 생성 채널 원클릭 자동 설정 (관리자)\n' +
+            '• `/autovoice channel <채널>` : 기존 음성 채널을 방 생성 트리거로 등록 (관리자)\n' +
+            '• `/autovoice name <서식>` : 기본 방 이름 서식 변경 (관리자)\n' +
+            '• `/autovoice view` / `/autovoice disable` : 상태 확인 및 비활성화 (관리자)\n' +
+            '• `/voice name <이름>` : 내 음성방 이름 변경 (방장)\n' +
+            '• `/voice limit <인원수>` : 내 음성방 입장 인원 제한 (0은 무제한, 방장)\n' +
+            '• `/voice lock` : 내 음성방 잠금 (다른 유저 입장 차단, 방장)\n' +
+            '• `/voice unlock` : 내 음성방 잠금 해제 (방장)',
         },
         {
           name: '🛡️ 채널 관리 및 모더레이션',
