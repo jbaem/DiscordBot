@@ -9,4 +9,5 @@ export const config = {
   welcomeChannelId: process.env.WELCOME_CHANNEL_ID || '',
   leaveChannelId: process.env.LEAVE_CHANNEL_ID || '',
   autoRoleId: process.env.AUTO_ROLE_ID || '',
+  botStatus: process.env.BOT_STATUS || '/도움말', // 봇 프로필 말풍선(커스텀 상태) 문구
 };

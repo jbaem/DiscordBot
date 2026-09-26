@@ -10,8 +10,8 @@ export default {
     console.log(`🌐 참여 중인 서버 수: ${client.guilds.cache.size}개`);
     console.log(`========================================`);
 
-    // 봇 상태 메시지 설정
-    client.user.setActivity('서버 및 채널 방 관리 | /help', {
+    // 봇 프로필의 말풍선(커스텀 상태) 문구 — .env 의 BOT_STATUS 로 변경 가능
+    client.user.setActivity(config.botStatus, {
       type: ActivityType.Custom,
     });
 
