@@ -1,12 +1,32 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { CommandTier, ADMIN_DEFAULT_PERMISSION, TIER_LABEL, isAdmin } from '../../utils/permissions.js';
+import { CommandTier, TIER_LABEL, isAdmin } from '../../utils/permissions.js';
 
 /**
  * 도움말 섹션 정의
- * - tier 가 ADMIN 인 섹션은 관리자 등급 멤버에게만 표시된다.
- * - 현재는 모든 명령어가 관리자 전용이며, 일반 구성원용 명령어는 추후 지정 예정.
+ * - tier 가 EVERYONE 인 섹션은 모든 멤버에게, ADMIN 인 섹션은 관리자 등급 멤버에게만 표시된다.
+ * - 관리자는 두 그룹을 모두 보고, 일반 구성원은 EVERYONE 그룹만 본다.
  */
 const HELP_SECTIONS = [
+  // ───────────── 👥 모든 멤버 ─────────────
+  {
+    tier: CommandTier.EVERYONE,
+    name: '🔊 내 임시 음성방 제어 (방장)',
+    value:
+      '• `/음성방 이름 <이름>` : 내 음성방 이름 변경\n' +
+      '• `/음성방 인원 <인원수>` : 내 음성방 입장 인원 제한 (0은 무제한)\n' +
+      '• `/음성방 잠금` / `/음성방 잠금해제` : 내 음성방 잠금 / 잠금 해제\n' +
+      '※ "➕ 클릭하여 통화방 생성" 채널에 접속하면 개인 통화방이 자동 생성되고, 모두 나가면 자동 삭제됩니다.',
+  },
+  {
+    tier: CommandTier.EVERYONE,
+    name: '📊 유저 정보 / 도움말',
+    value:
+      '• `/유저정보 [유저]` : 유저 정보 확인 (계정 생성일, 서버 입장일, 입장 횟수, 포인트, 활동일, 메시지 수, 음성 시간, 역할, 최근 닉네임 변경)\n' +
+      '• `/도움말` : 이 안내 메시지 확인\n' +
+      '※ 포인트는 메시지 1개 1점(60초 쿨다운), 음성 채널 1분 1점으로 쌓입니다.',
+  },
+
+  // ───────────── 👑 관리자 전용 ─────────────
   {
     tier: CommandTier.ADMIN,
     name: '🔗 채널 연결',
@@ -33,7 +53,7 @@ const HELP_SECTIONS = [
       '• `/음성방설정 자동설정` : 전용 카테고리 및 생성 채널 원클릭 자동 설정\n' +
       '• `/음성방설정 이름서식 <서식>` : 생성될 방의 기본 이름 서식 변경\n' +
       '• `/음성방설정 확인` : 설정 상태 확인\n' +
-      '• `/음성방 이름 <이름>` / `인원 <인원수>` / `잠금` / `잠금해제` : 자신이 만든 임시 음성방 제어',
+      '※ 방 제어(`/음성방`)는 모든 멤버가 자신이 만든 방에서 사용할 수 있습니다.',
   },
   {
     tier: CommandTier.ADMIN,
@@ -56,22 +76,19 @@ const HELP_SECTIONS = [
   },
   {
     tier: CommandTier.ADMIN,
-    name: '📊 정보 / 백업 / 기타',
+    name: '💾 백업 / 기타',
     value:
-      '• `/유저정보 [유저]` : 유저 정보 확인 (계정 생성일, 서버 입장일, 입장 횟수, 포인트, 활동일, 메시지 수, 음성 시간, 역할, 최근 닉네임 변경)\n' +
       '• `/백업 내보내기` : 서버 설정과 멤버 이력, 활동 기록을 JSON 파일로 내려받기\n' +
       '• `/백업 불러오기 <파일> [모드] [강제]` : 백업 파일을 업로드해 복원 (병합 / 전체 교체)\n' +
-      '• `/핑` : 봇의 응답 속도 확인\n' +
-      '• `/도움말` : 이 안내 메시지 확인',
+      '• `/핑` : 봇의 응답 속도 확인',
   },
 ];
 
 export default {
-  tier: CommandTier.ADMIN,
+  tier: CommandTier.EVERYONE,
   data: new SlashCommandBuilder()
     .setName('도움말')
-    .setDescription('방 관리 봇의 사용 가능한 명령어 목록을 확인합니다.')
-    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION),
+    .setDescription('방 관리 봇의 사용 가능한 명령어 목록을 확인합니다.'),
 
   async execute(interaction) {
     const admin = isAdmin(interaction);
@@ -83,8 +100,8 @@ export default {
       .setDescription(
         '서버와 채널을 원활하게 관리할 수 있도록 지원하는 봇입니다.\n' +
           (admin
-            ? `${TIER_LABEL[CommandTier.ADMIN]} 명령어를 표시합니다.`
-            : `${TIER_LABEL[CommandTier.EVERYONE]} 명령어만 표시됩니다.`)
+            ? `${TIER_LABEL[CommandTier.EVERYONE]} 명령어와 ${TIER_LABEL[CommandTier.ADMIN]} 명령어를 모두 표시합니다.`
+            : `${TIER_LABEL[CommandTier.EVERYONE]} 명령어만 표시됩니다. 관리자 전용 명령어는 서버 관리 권한이 있는 멤버에게만 보입니다.`)
       );
 
     if (visibleSections.length === 0) {

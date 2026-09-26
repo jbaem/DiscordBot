@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
+import { CommandTier } from '../../utils/permissions.js';
 import { memberHistoryManager } from '../../utils/memberHistoryManager.js';
 import {
   activityManager,
@@ -26,11 +26,10 @@ function formatDate(timestamp) {
 }
 
 export default {
-  tier: CommandTier.ADMIN,
+  tier: CommandTier.EVERYONE,
   data: new SlashCommandBuilder()
     .setName('유저정보')
     .setDescription('유저의 기본 정보와 서버 활동(포인트, 활동일, 입장일 등)을 확인합니다.')
-    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)
     .addUserOption(opt =>
       opt
         .setName('유저')

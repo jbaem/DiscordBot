@@ -1,13 +1,12 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
+import { CommandTier } from '../../utils/permissions.js';
 import { tempVoiceManager } from '../../utils/tempVoiceManager.js';
 
 export default {
-  tier: CommandTier.ADMIN,
+  tier: CommandTier.EVERYONE,
   data: new SlashCommandBuilder()
     .setName('음성방')
     .setDescription('내가 만든 임시 음성 채널을 제어합니다.')
-    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)
     .addSubcommand(sub =>
       sub
         .setName('이름')
