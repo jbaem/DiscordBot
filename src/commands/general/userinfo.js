@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
 import { memberHistoryManager } from '../../utils/memberHistoryManager.js';
 import {
   activityManager,
@@ -25,12 +26,14 @@ function formatDate(timestamp) {
 }
 
 export default {
+  tier: CommandTier.ADMIN,
   data: new SlashCommandBuilder()
-    .setName('userinfo')
+    .setName('유저정보')
     .setDescription('유저의 기본 정보와 서버 활동(포인트, 활동일, 입장일 등)을 확인합니다.')
+    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)
     .addUserOption(opt =>
       opt
-        .setName('user')
+        .setName('유저')
         .setDescription('정보를 확인할 유저 (비워두면 본인)')
     ),
 
@@ -39,8 +42,8 @@ export default {
       return interaction.reply({ content: '❌ 서버 안에서만 사용할 수 있습니다.', ephemeral: true });
     }
 
-    const targetUser = interaction.options.getUser('user') || interaction.user;
-    let member = interaction.options.getMember('user') || (targetUser.id === interaction.user.id ? interaction.member : null);
+    const targetUser = interaction.options.getUser('유저') || interaction.user;
+    let member = interaction.options.getMember('유저') || (targetUser.id === interaction.user.id ? interaction.member : null);
 
     // 캐시에 없으면 API로 조회
     if (!member) {

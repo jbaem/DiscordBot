@@ -114,7 +114,7 @@ export function parseBackup(rawText) {
   try {
     data = JSON.parse(rawText);
   } catch {
-    throw new BackupError('JSON 형식이 올바르지 않습니다. 이 봇의 `/backup export`로 만든 파일인지 확인해 주세요.');
+    throw new BackupError('JSON 형식이 올바르지 않습니다. 이 봇의 `/백업 내보내기`로 만든 파일인지 확인해 주세요.');
   }
 
   if (!data || typeof data !== 'object' || Array.isArray(data)) {

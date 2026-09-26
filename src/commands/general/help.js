@@ -1,71 +1,117 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION, TIER_LABEL, isAdmin } from '../../utils/permissions.js';
+
+/**
+ * 도움말 섹션 정의
+ * - tier 가 ADMIN 인 섹션은 관리자 등급 멤버에게만 표시된다.
+ * - 현재는 모든 명령어가 관리자 전용이며, 일반 구성원용 명령어는 추후 지정 예정.
+ */
+const HELP_SECTIONS = [
+  {
+    tier: CommandTier.ADMIN,
+    name: '🔗 채널 연결',
+    value:
+      '• `/채널연결 입장알림 <채널>` / `퇴장알림 <채널>` : 입장·퇴장 알림 채널 연결\n' +
+      '• `/채널연결 닉네임로그 <채널>` : 닉네임 변경 로그 채널 연결\n' +
+      '• `/채널연결 음성생성 <채널>` : 임시 음성방 생성 채널 연결\n' +
+      '• `/채널연결 확인` / `/채널연결 해제 <기능>` : 연결 상태 확인 / 연결 해제(비활성화)',
+  },
+  {
+    tier: CommandTier.ADMIN,
+    name: '👋 입장 / 퇴장 알림',
+    value:
+      '• `/알림문구 입장 <문구>` / `/알림문구 퇴장 <문구>` : 알림 문구 설정\n' +
+      '• `/알림문구 확인` : 현재 문구와 미리보기 확인\n' +
+      '• `/테스트 입장알림` / `/테스트 퇴장알림` : 연결된 채널로 테스트 전송\n' +
+      '• 문구 변수: {user}, {userName}, {userTag}, {userId}, {server}, {count}, {joinedAt}, {joinedAtRelative}, {createdAt}, {accountAge}, {joinCount}, {isRejoin}\n' +
+      '• 재입장(들낙) 자동 감지 : 재입장 시 알림 제목과 색상을 구분 표시',
+  },
+  {
+    tier: CommandTier.ADMIN,
+    name: '🔊 임시 음성방 (Join-to-Create)',
+    value:
+      '• `/음성방설정 자동설정` : 전용 카테고리 및 생성 채널 원클릭 자동 설정\n' +
+      '• `/음성방설정 이름서식 <서식>` : 생성될 방의 기본 이름 서식 변경\n' +
+      '• `/음성방설정 확인` : 설정 상태 확인\n' +
+      '• `/음성방 이름 <이름>` / `인원 <인원수>` / `잠금` / `잠금해제` : 자신이 만든 임시 음성방 제어',
+  },
+  {
+    tier: CommandTier.ADMIN,
+    name: '🛡️ 채널 관리',
+    value:
+      '• `/채널관리 잠금 [사유]` / `/채널관리 잠금해제` : 현재 채널 잠금 / 해제\n' +
+      '• `/채널관리 슬로우모드 <초>` : 슬로우 모드 설정 (0은 해제)\n' +
+      '• `/채널관리 메시지삭제 <개수> [유저]` : 메시지 일괄 삭제 (최대 100개, 특정 유저 필터)',
+  },
+  {
+    tier: CommandTier.ADMIN,
+    name: '🎭 역할 자동화',
+    value:
+      '• `/자동역할 설정 [이름]` : 구성원 역할을 만들어 자동 역할로 지정하고 기존 멤버 전체에 부여 (기본 이름: 포켓몬)\n' +
+      '• `/자동역할 지정 <역할>` / `/자동역할 일괄적용` : 기존 역할을 자동 역할로 지정 / 기존 멤버에게 일괄 부여\n' +
+      '• `/자동역할 확인` / `/자동역할 해제` : 자동 역할 확인 / 비활성화\n' +
+      '• `/이모지역할 추가 <역할> <이모지> [설명]` : 이모지를 누르면 받는 역할 등록 (예: 🎲 → 겜블러)\n' +
+      '• `/이모지역할 패널 [채널] [제목] [설명]` : 이모지 역할 패널 게시 (반응 추가 = 부여, 해제 = 제거)\n' +
+      '• `/이모지역할 목록` / `제거 <역할>` / `갱신` : 목록 확인 / 등록 해제 / 패널 갱신',
+  },
+  {
+    tier: CommandTier.ADMIN,
+    name: '📊 정보 / 백업 / 기타',
+    value:
+      '• `/유저정보 [유저]` : 유저 정보 확인 (계정 생성일, 서버 입장일, 입장 횟수, 포인트, 활동일, 메시지 수, 음성 시간, 역할, 최근 닉네임 변경)\n' +
+      '• `/백업 내보내기` : 서버 설정과 멤버 이력, 활동 기록을 JSON 파일로 내려받기\n' +
+      '• `/백업 불러오기 <파일> [모드] [강제]` : 백업 파일을 업로드해 복원 (병합 / 전체 교체)\n' +
+      '• `/핑` : 봇의 응답 속도 확인\n' +
+      '• `/도움말` : 이 안내 메시지 확인',
+  },
+];
 
 export default {
+  tier: CommandTier.ADMIN,
   data: new SlashCommandBuilder()
-    .setName('help')
-    .setDescription('방 관리 봇의 사용 가능한 명령어 목록을 확인합니다.'),
+    .setName('도움말')
+    .setDescription('방 관리 봇의 사용 가능한 명령어 목록을 확인합니다.')
+    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION),
+
   async execute(interaction) {
+    const admin = isAdmin(interaction);
+    const visibleSections = HELP_SECTIONS.filter(s => admin || s.tier === CommandTier.EVERYONE);
+
     const embed = new EmbedBuilder()
       .setColor(0x5865F2)
       .setTitle('📖 방 관리 봇 도움말')
-      .setDescription('서버와 채널을 원활하게 관리할 수 있도록 지원하는 봇입니다.')
-      .addFields(
-        {
-          name: '🔊 임시 음성 채널 (Join-to-Create)',
-          value:
-            '• `/autovoice setup` : 전용 카테고리 및 생성 채널 원클릭 자동 설정 (관리자)\n' +
-            '• `/autovoice channel <채널>` : 기존 음성 채널을 방 생성 트리거로 등록 (관리자)\n' +
-            '• `/autovoice name <서식>` : 기본 방 이름 서식 변경 (관리자)\n' +
-            '• `/autovoice view` / `/autovoice disable` : 상태 확인 및 비활성화 (관리자)\n' +
-            '• `/voice name <이름>` : 내 음성방 이름 변경 (방장)\n' +
-            '• `/voice limit <인원수>` : 내 음성방 입장 인원 제한 (0은 무제한, 방장)\n' +
-            '• `/voice lock` : 내 음성방 잠금 (다른 유저 입장 차단, 방장)\n' +
-            '• `/voice unlock` : 내 음성방 잠금 해제 (방장)',
-        },
-        {
-          name: '🛡️ 채널 관리 및 모더레이션',
-          value:
-            '• `/clear <개수> [유저]` : 메시지 일괄 삭제 (최대 100개, 특정 유저 필터링 가능)\n' +
-            '• `/lock [이유]` : 현재 채널 잠금 (일반 유저 채팅 차단)\n' +
-            '• `/unlock` : 현재 채널 잠금 해제\n' +
-            '• `/slowmode <초>` : 채팅 슬로우 모드 설정 (0초는 해제)\n' +
-            '• `/backup export` : 서버 설정(채널 ID, 문구)과 멤버 입장 이력을 JSON 파일로 내려받기 (관리자)\n' +
-            '• `/backup import <파일> [모드]` : 백업 파일을 업로드해 설정과 이력 복원 (관리자)',
-        },
-        {
-          name: '🎭 역할 자동화',
-          value:
-            '• `/autorole setup [이름]` : 구성원 역할을 만들어 자동 역할로 지정하고 기존 멤버 전체에 부여 (기본 이름: 포켓몬)\n' +
-            '• `/autorole set <역할>` / `/autorole apply` : 기존 역할을 자동 역할로 지정 / 기존 멤버에게 일괄 부여\n' +
-            '• `/autorole view` / `/autorole disable` : 자동 역할 확인 / 비활성화\n' +
-            '• `/reactionrole add <역할> <이모지> [설명]` : 이모지를 누르면 받는 역할 등록 (예: 🎲 → 겜블러)\n' +
-            '• `/reactionrole panel [채널]` : 이모지 역할 패널 메시지 게시 (반응 추가 = 역할 부여, 해제 = 역할 제거)\n' +
-            '• `/reactionrole list` / `remove <역할>` / `refresh` : 목록 확인 / 등록 해제 / 패널 갱신',
-        },
-        {
-          name: '👋 멤버 입장 / 퇴장 채널 및 메시지 커스텀',
-          value:
-            '• `/welcome channel <채널>` : 입장(환영) 알림을 보낼 텍스트 채널 지정\n' +
-            '• `/welcome message <문구>` : 환영 메시지 커스텀 ({user}, {userName}, {server}, {count}, {joinedAt}, {accountAge}, {joinCount}, {isRejoin} 등 변수 지원)\n' +
-            '• `/welcome view` / `/welcome test` / `/welcome disable` : 입장 알림 확인 / 테스트 / 비활성화\n' +
-            '• `/leave channel <채널>` : 퇴장 알림을 보낼 텍스트 채널 지정\n' +
-            '• `/leave message <문구>` : 퇴장 메시지 커스텀 (입장 메시지와 동일한 변수 지원)\n' +
-            '• `/leave view` / `/leave test` / `/leave disable` : 퇴장 알림 확인 / 테스트 / 비활성화\n' +
-            '• 재입장(들낙) 자동 감지 : 입장 횟수를 기록해 재입장 시 알림 제목과 색상을 구분 표시\n' +
-            '• `/nicklog channel <채널>` : 닉네임 변경 로그 채널 지정 (변경 시각, 변경 전/후 이름 기록)\n' +
-            '• `/nicklog view` / `/nicklog disable` : 닉네임 로그 설정 확인 / 비활성화',
-        },
-        {
-          name: '⚙️ 일반',
-          value:
-            '• `/userinfo [유저]` : 유저 정보 확인 (이름, 계정 생성일, 서버 입장일, 입장 횟수, 포인트, 활동일, 메시지 수, 음성 시간, 역할)\n' +
-            '• `/ping` : 봇의 응답 속도 확인\n' +
-            '• `/help` : 이 안내 메시지 확인',
-        }
-      )
-      .setFooter({ text: '관리자 권한이 있는 멤버만 모더레이션 명령어를 사용할 수 있습니다.' })
+      .setDescription(
+        '서버와 채널을 원활하게 관리할 수 있도록 지원하는 봇입니다.\n' +
+          (admin
+            ? `${TIER_LABEL[CommandTier.ADMIN]} 명령어를 표시합니다.`
+            : `${TIER_LABEL[CommandTier.EVERYONE]} 명령어만 표시됩니다.`)
+      );
+
+    if (visibleSections.length === 0) {
+      embed.addFields({
+        name: '사용 가능한 명령어가 없습니다',
+        value: '현재 모든 명령어는 관리자 전용입니다. 필요한 기능은 서버 관리자에게 문의하세요.',
+      });
+    }
+
+    let currentTier = null;
+    for (const section of visibleSections) {
+      // 등급이 바뀌는 지점에 구분 헤더 삽입
+      if (section.tier !== currentTier) {
+        currentTier = section.tier;
+        embed.addFields({ name: '​', value: `**━━━ ${TIER_LABEL[section.tier]} ━━━**` });
+      }
+      embed.addFields({ name: section.name, value: section.value });
+    }
+
+    embed
+      .setFooter({
+        text: admin
+          ? '👑 관리자 전용 명령어는 서버 관리(Manage Server) 권한 또는 관리자 권한이 있는 멤버만 사용할 수 있습니다.'
+          : '더 많은 기능은 서버 관리자에게 문의하세요.',
+      })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply({ embeds: [embed], ephemeral: !admin });
   },
 };

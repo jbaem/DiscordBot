@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
 import { settingsManager } from '../../utils/settingsManager.js';
 import { config } from '../../config.js';
 import { checkBotCanManageRole, resolveAutoRoleId, applyRoleToAllMembers, getDangerousPermissions } from '../../utils/roleManager.js';
@@ -6,45 +7,46 @@ import { checkBotCanManageRole, resolveAutoRoleId, applyRoleToAllMembers, getDan
 const DEFAULT_ROLE_NAME = '포켓몬';
 
 export default {
+  tier: CommandTier.ADMIN,
   data: new SlashCommandBuilder()
-    .setName('autorole')
+    .setName('자동역할')
     .setDescription('신규 멤버 입장 시 자동으로 부여할 구성원 역할을 설정합니다.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
+    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)
     .addSubcommand(sub =>
       sub
-        .setName('setup')
+        .setName('설정')
         .setDescription('구성원 역할을 새로 만들어 자동 역할로 지정하고, 기존 멤버 전체에게도 부여합니다.')
         .addStringOption(opt =>
           opt
-            .setName('name')
+            .setName('이름')
             .setDescription(`생성할 역할 이름 (기본: ${DEFAULT_ROLE_NAME})`)
             .setMaxLength(100)
         )
     )
     .addSubcommand(sub =>
       sub
-        .setName('set')
+        .setName('지정')
         .setDescription('이미 있는 역할을 자동 역할로 지정합니다.')
         .addRoleOption(opt =>
           opt
-            .setName('role')
+            .setName('역할')
             .setDescription('신규 멤버에게 자동으로 부여할 역할')
             .setRequired(true)
         )
     )
     .addSubcommand(sub =>
       sub
-        .setName('apply')
+        .setName('일괄적용')
         .setDescription('현재 서버의 모든 멤버(봇 제외)에게 자동 역할을 일괄 부여합니다.')
     )
     .addSubcommand(sub =>
       sub
-        .setName('view')
+        .setName('확인')
         .setDescription('현재 자동 역할 설정을 확인합니다.')
     )
     .addSubcommand(sub =>
       sub
-        .setName('disable')
+        .setName('해제')
         .setDescription('자동 역할 부여를 비활성화합니다.')
     ),
 
@@ -67,8 +69,8 @@ export default {
     };
 
     // 1. 역할 생성 + 지정 + 기존 멤버 일괄 부여
-    if (subcommand === 'setup') {
-      const name = interaction.options.getString('name')?.trim() || DEFAULT_ROLE_NAME;
+    if (subcommand === '설정') {
+      const name = interaction.options.getString('이름')?.trim() || DEFAULT_ROLE_NAME;
       await interaction.deferReply();
 
       try {
@@ -85,7 +87,7 @@ export default {
             name,
             mentionable: false,
             hoist: false,
-            reason: '/autorole setup 으로 생성된 구성원 역할',
+            reason: '/자동역할 설정 으로 생성된 구성원 역할',
           });
           created = true;
         }
@@ -115,8 +117,8 @@ export default {
     }
 
     // 2. 기존 역할 지정
-    if (subcommand === 'set') {
-      const role = interaction.options.getRole('role');
+    if (subcommand === '지정') {
+      const role = interaction.options.getRole('역할');
       const problem = validateRole(role);
       if (problem) return interaction.reply({ content: problem, ephemeral: true });
 
@@ -125,19 +127,19 @@ export default {
       const embed = new EmbedBuilder()
         .setColor(0x57F287)
         .setTitle('✅ 자동 역할 설정 완료')
-        .setDescription(`이제 새로 들어오는 멤버에게 ${role} 역할이 자동으로 부여됩니다.\n기존 멤버에게도 적용하려면 \`/autorole apply\` 를 실행하세요.`)
+        .setDescription(`이제 새로 들어오는 멤버에게 ${role} 역할이 자동으로 부여됩니다.\n기존 멤버에게도 적용하려면 \`/자동역할 일괄적용\` 를 실행하세요.`)
         .setTimestamp();
 
       return interaction.reply({ embeds: [embed] });
     }
 
     // 3. 기존 멤버 일괄 적용
-    if (subcommand === 'apply') {
+    if (subcommand === '일괄적용') {
       const roleId = resolveAutoRoleId(guild.id);
       const role = roleId ? guild.roles.cache.get(roleId) : null;
       if (!role) {
         return interaction.reply({
-          content: '❌ 자동 역할이 설정되어 있지 않습니다. `/autorole setup` 또는 `/autorole set` 으로 먼저 지정해 주세요.',
+          content: '❌ 자동 역할이 설정되어 있지 않습니다. `/자동역할 설정` 또는 `/자동역할 지정` 으로 먼저 지정해 주세요.',
           ephemeral: true,
         });
       }
@@ -166,7 +168,7 @@ export default {
     }
 
     // 4. 설정 확인
-    if (subcommand === 'view') {
+    if (subcommand === '확인') {
       const settings = settingsManager.getGuildSettings(guild.id);
       const roleId = resolveAutoRoleId(guild.id);
       const role = roleId ? guild.roles.cache.get(roleId) : null;
@@ -194,7 +196,7 @@ export default {
     }
 
     // 5. 비활성화
-    if (subcommand === 'disable') {
+    if (subcommand === '해제') {
       settingsManager.updateGuildSettings(guild.id, { autoRoleId: null });
       const embed = new EmbedBuilder()
         .setColor(0xED4245)

@@ -1,4 +1,5 @@
-import { EmbedBuilder, Events } from 'discord.js';
+import { Events } from 'discord.js';
+import { buildWelcomeEmbed } from '../utils/memberNotifications.js';
 import { config } from '../config.js';
 import { settingsManager } from '../utils/settingsManager.js';
 import { memberHistoryManager } from '../utils/memberHistoryManager.js';
@@ -32,26 +33,7 @@ export default {
       try {
         const channel = member.guild.channels.cache.get(welcomeChannelId);
         if (channel && channel.isTextBased()) {
-          const descriptionText = settingsManager.formatMessage(settings.welcomeMessage, {
-            member,
-            guild: member.guild,
-            joinCount,
-          });
-
-          const isRejoinText = joinCount > 1 ? `⚠️ 재입장 (${joinCount}회차)` : '✨ 최초 입장';
-
-          const embed = new EmbedBuilder()
-            .setColor(joinCount > 1 ? 0xFEE75C : 0x57F287)
-            .setTitle(joinCount > 1 ? '🔁 멤버가 다시 입장했습니다' : '🎉 새로운 멤버가 입장했습니다!')
-            .setDescription(descriptionText)
-            .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
-            .addFields(
-              { name: '👤 유저명', value: member.user.tag, inline: true },
-              { name: '👥 현재 서버 멤버 수', value: `${member.guild.memberCount}명`, inline: true },
-              { name: '📊 입장 횟수', value: isRejoinText, inline: true }
-            )
-            .setFooter({ text: `유저 ID: ${member.id}` })
-            .setTimestamp();
+          const embed = buildWelcomeEmbed({ member, guild: member.guild, settings, joinCount });
 
           await channel.send({ embeds: [embed] });
         }

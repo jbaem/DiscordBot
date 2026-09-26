@@ -108,7 +108,7 @@ export async function applyRoleToAllMembers(guild, role) {
       continue;
     }
     try {
-      await member.roles.add(role, '/autorole apply 일괄 부여');
+      await member.roles.add(role, '/자동역할 일괄적용 일괄 부여');
       result.added++;
     } catch (error) {
       result.failed++;
@@ -198,7 +198,7 @@ export function buildReactionRolePanelEmbed(guild, { title, description } = {}) 
         (lines.length ? lines.join('\n') : '등록된 역할이 없습니다.') +
         '\n\n아래 이모지를 누르면 역할이 부여되고, 다시 눌러 반응을 해제하면 역할이 제거됩니다.'
     )
-    .setFooter({ text: '반응 역할 패널 · 관리자는 /reactionrole 명령어로 관리할 수 있습니다.' });
+    .setFooter({ text: '반응 역할 패널 · 관리자는 /이모지역할 명령어로 관리할 수 있습니다.' });
 }
 
 /**

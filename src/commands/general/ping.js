@@ -1,9 +1,12 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
 
 export default {
+  tier: CommandTier.ADMIN,
   data: new SlashCommandBuilder()
-    .setName('ping')
-    .setDescription('봇의 응답 속도 및 웹소켓 핑을 확인합니다.'),
+    .setName('핑')
+    .setDescription('봇의 응답 속도 및 웹소켓 핑을 확인합니다.')
+    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION),
   async execute(interaction) {
     const sent = await interaction.reply({
       content: '핑 측정 중...',

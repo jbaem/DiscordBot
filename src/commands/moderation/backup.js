@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, AttachmentBuilder } from 'discord.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
 import {
   createBackup,
   parseBackup,
@@ -9,28 +10,29 @@ import {
 } from '../../utils/backupManager.js';
 
 export default {
+  tier: CommandTier.ADMIN,
   data: new SlashCommandBuilder()
-    .setName('backup')
+    .setName('백업')
     .setDescription('서버 설정(채널 ID, 문구)과 멤버 입장 이력을 백업하거나 복원합니다.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)
     .addSubcommand(sub =>
       sub
-        .setName('export')
+        .setName('내보내기')
         .setDescription('현재 서버의 설정과 멤버 이력을 JSON 파일로 내려받습니다.')
     )
     .addSubcommand(sub =>
       sub
-        .setName('import')
+        .setName('불러오기')
         .setDescription('백업 JSON 파일을 업로드하여 설정과 멤버 이력을 복원합니다.')
         .addAttachmentOption(opt =>
           opt
-            .setName('file')
-            .setDescription('/backup export 로 내려받은 JSON 백업 파일')
+            .setName('파일')
+            .setDescription('/백업 내보내기 로 내려받은 JSON 백업 파일')
             .setRequired(true)
         )
         .addStringOption(opt =>
           opt
-            .setName('mode')
+            .setName('모드')
             .setDescription('멤버 이력 복원 방식 (기본: 병합)')
             .addChoices(
               { name: '병합 (권장) - 기존 기록과 합치고 더 큰 입장 횟수를 유지', value: 'merge' },
@@ -39,7 +41,7 @@ export default {
         )
         .addBooleanOption(opt =>
           opt
-            .setName('force')
+            .setName('강제')
             .setDescription('다른 서버에서 만든 백업 파일도 강제로 적용 (기본: 아니오)')
         )
     ),
@@ -53,7 +55,7 @@ export default {
     }
 
     // 1. 백업 파일 내려받기
-    if (subcommand === 'export') {
+    if (subcommand === '내보내기') {
       try {
         const backup = createBackup(guild);
         const json = JSON.stringify(backup, null, 2);
@@ -68,7 +70,7 @@ export default {
         const embed = new EmbedBuilder()
           .setColor(0x57F287)
           .setTitle('💾 백업 파일 생성 완료')
-          .setDescription('아래 파일을 내려받아 안전한 곳에 보관하세요. 복원은 `/backup import` 로 할 수 있습니다.')
+          .setDescription('아래 파일을 내려받아 안전한 곳에 보관하세요. 복원은 `/백업 불러오기` 로 할 수 있습니다.')
           .addFields(
             { name: '⚙️ 저장된 설정 항목', value: `${configuredCount}개 / ${Object.keys(backup.settings).length}개`, inline: true },
             { name: '👥 멤버 이력 레코드', value: `${memberCount.toLocaleString()}명`, inline: true },
@@ -86,10 +88,10 @@ export default {
     }
 
     // 2. 백업 파일로 복원
-    if (subcommand === 'import') {
-      const attachment = interaction.options.getAttachment('file');
-      const mode = interaction.options.getString('mode') || 'merge';
-      const force = interaction.options.getBoolean('force') || false;
+    if (subcommand === '불러오기') {
+      const attachment = interaction.options.getAttachment('파일');
+      const mode = interaction.options.getString('모드') || 'merge';
+      const force = interaction.options.getBoolean('강제') || false;
 
       if (attachment.size > MAX_BACKUP_FILE_BYTES) {
         return interaction.reply({
@@ -121,7 +123,7 @@ export default {
             .setTitle('⚠️ 다른 서버의 백업 파일입니다')
             .setDescription(
               '이 파일은 다른 서버에서 만들어졌습니다. 채널 ID 등이 현재 서버와 맞지 않을 수 있습니다.\n' +
-              '그래도 적용하려면 `force` 옵션을 **예**로 설정해 다시 실행해 주세요.'
+              '그래도 적용하려면 `강제` 옵션을 **예**로 설정해 다시 실행해 주세요.'
             )
             .addFields(
               { name: '백업 서버', value: `${backup.guildName || '알 수 없음'} (\`${backup.guildId}\`)`, inline: true },
@@ -150,7 +152,7 @@ export default {
             name: '⚠️ 현재 서버에 없는 채널',
             value:
               result.missingChannels.map(v => `\`${v}\``).join('\n') +
-              '\n해당 기능은 `/autovoice`, `/welcome`, `/leave` 명령어로 채널을 다시 지정해 주세요.',
+              '\n해당 기능은 `/채널연결` 명령어로 채널을 다시 연결해 주세요.',
           });
         }
         if (result.skippedSettings.length) {

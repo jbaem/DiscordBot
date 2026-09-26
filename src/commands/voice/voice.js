@@ -1,17 +1,20 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
 import { tempVoiceManager } from '../../utils/tempVoiceManager.js';
 
 export default {
+  tier: CommandTier.ADMIN,
   data: new SlashCommandBuilder()
-    .setName('voice')
+    .setName('음성방')
     .setDescription('내가 만든 임시 음성 채널을 제어합니다.')
+    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)
     .addSubcommand(sub =>
       sub
-        .setName('name')
+        .setName('이름')
         .setDescription('음성 채널의 이름을 변경합니다.')
         .addStringOption(opt =>
           opt
-            .setName('new_name')
+            .setName('이름')
             .setDescription('새로운 음성 채널 이름')
             .setRequired(true)
             .setMaxLength(50)
@@ -19,11 +22,11 @@ export default {
     )
     .addSubcommand(sub =>
       sub
-        .setName('limit')
+        .setName('인원')
         .setDescription('음성 채널의 최대 접속 인원수를 변경합니다.')
         .addIntegerOption(opt =>
           opt
-            .setName('count')
+            .setName('인원수')
             .setDescription('최대 인원수 (0: 무제한, 1~99)')
             .setRequired(true)
             .setMinValue(0)
@@ -32,12 +35,12 @@ export default {
     )
     .addSubcommand(sub =>
       sub
-        .setName('lock')
+        .setName('잠금')
         .setDescription('음성 채널을 잠가 다른 사용자의 접속을 막습니다.')
     )
     .addSubcommand(sub =>
       sub
-        .setName('unlock')
+        .setName('잠금해제')
         .setDescription('음성 채널의 잠금을 해제합니다.')
     ),
 
@@ -74,8 +77,8 @@ export default {
     const subcommand = interaction.options.getSubcommand();
 
     try {
-      if (subcommand === 'name') {
-        const newName = interaction.options.getString('new_name');
+      if (subcommand === '이름') {
+        const newName = interaction.options.getString('이름');
         await voiceChannel.setName(newName);
 
         const embed = new EmbedBuilder()
@@ -87,8 +90,8 @@ export default {
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 
-      if (subcommand === 'limit') {
-        const limit = interaction.options.getInteger('count');
+      if (subcommand === '인원') {
+        const limit = interaction.options.getInteger('인원수');
         await voiceChannel.setUserLimit(limit);
 
         const embed = new EmbedBuilder()
@@ -104,7 +107,7 @@ export default {
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 
-      if (subcommand === 'lock') {
+      if (subcommand === '잠금') {
         await voiceChannel.permissionOverwrites.edit(
           interaction.guild.roles.everyone,
           { Connect: false }
@@ -119,7 +122,7 @@ export default {
         return interaction.reply({ embeds: [embed], ephemeral: true });
       }
 
-      if (subcommand === 'unlock') {
+      if (subcommand === '잠금해제') {
         await voiceChannel.permissionOverwrites.edit(
           interaction.guild.roles.everyone,
           { Connect: null }

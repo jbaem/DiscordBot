@@ -67,6 +67,7 @@ DiscordBot/
 * **변수 및 함수**: `camelCase` (예: `loadCommands`, `newVoiceChannel`)
 * **상수**: 불변 전역 상수는 `UPPER_SNAKE_CASE` (예: `MAX_CLEAR_COUNT`)
 * **클래스**: `PascalCase` (예: `TempVoiceManager`)
+* **슬래시 명령어 및 옵션 이름**: 한글로 작성 (예: `/채널연결 입장알림 <채널>`, 옵션 `문구`). 공백 없이 최대 32자. 파일 이름은 영문 `camelCase` 유지 (예: `channelLink.js`)
 * **파일 이름**: 
   * 명령어 및 유틸리티: `camelCase.js` (예: `tempVoiceManager.js`, `slowmode.js`)
   * 이벤트 핸들러: 디스코드 이벤트명과 동일하게 작성 (예: `ready.js`, `guildMemberAdd.js`)
@@ -86,16 +87,20 @@ DiscordBot/
   ```
 
 ### 4.4. 슬래시 명령어 작성 규칙
-모든 명령어 파일은 `src/commands/<category>/` 경로에 위치하며 아래 구조를 준수해야 합니다:
+모든 명령어 파일은 `src/commands/<category>/` 경로에 위치하며 아래 구조를 준수해야 합니다.
+모든 명령어는 `tier` 로 등급을 명시합니다 (`CommandTier.ADMIN`: 관리자 전용, `CommandTier.EVERYONE`: 모든 멤버).
+관리자 전용 명령어는 `setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)` 으로 기본 권한을 통일하고, 실행 전 `interactionCreate` 에서 한 번 더 검사됩니다.
 
 ```javascript
-import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
 
 export default {
+  tier: CommandTier.ADMIN, // 관리자 전용. 모든 멤버용이면 CommandTier.EVERYONE
   data: new SlashCommandBuilder()
-    .setName('명령어이름') // 소문자 영문, 숫자, 하이픈만 허용
+    .setName('명령어이름') // 한글 명령어 이름 (공백 없이 최대 32자, 예: '채널연결')
     .setDescription('명령어에 대한 명확한 한글 설명')
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages), // 관리 권한 필요 시 필수 지정
+    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION), // 관리자 전용 명령어만 지정
 
   async execute(interaction) {
     // 1. 사전 조건 검증 (채널 종류, 권한 등)
