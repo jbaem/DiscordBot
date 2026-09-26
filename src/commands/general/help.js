@@ -28,21 +28,27 @@ export default {
             '• `/clear <개수> [유저]` : 메시지 일괄 삭제 (최대 100개, 특정 유저 필터링 가능)\n' +
             '• `/lock [이유]` : 현재 채널 잠금 (일반 유저 채팅 차단)\n' +
             '• `/unlock` : 현재 채널 잠금 해제\n' +
-            '• `/slowmode <초>` : 채팅 슬로우 모드 설정 (0초는 해제)',
+            '• `/slowmode <초>` : 채팅 슬로우 모드 설정 (0초는 해제)\n' +
+            '• `/backup export` : 서버 설정(채널 ID, 문구)과 멤버 입장 이력을 JSON 파일로 내려받기 (관리자)\n' +
+            '• `/backup import <파일> [모드]` : 백업 파일을 업로드해 설정과 이력 복원 (관리자)',
         },
         {
           name: '👋 멤버 입장 / 퇴장 채널 및 메시지 커스텀',
           value:
             '• `/welcome channel <채널>` : 입장(환영) 알림을 보낼 텍스트 채널 지정\n' +
-            '• `/welcome message <문구>` : 환영 메시지 커스텀 ({user}, {userName}, {server}, {count} 변수 지원)\n' +
+            '• `/welcome message <문구>` : 환영 메시지 커스텀 ({user}, {userName}, {server}, {count}, {joinedAt}, {accountAge}, {joinCount}, {isRejoin} 등 변수 지원)\n' +
             '• `/welcome view` / `/welcome test` / `/welcome disable` : 입장 알림 확인 / 테스트 / 비활성화\n' +
             '• `/leave channel <채널>` : 퇴장 알림을 보낼 텍스트 채널 지정\n' +
-            '• `/leave message <문구>` : 퇴장 메시지 커스텀 문구 설정\n' +
-            '• `/leave view` / `/leave test` / `/leave disable` : 퇴장 알림 확인 / 테스트 / 비활성화',
+            '• `/leave message <문구>` : 퇴장 메시지 커스텀 (입장 메시지와 동일한 변수 지원)\n' +
+            '• `/leave view` / `/leave test` / `/leave disable` : 퇴장 알림 확인 / 테스트 / 비활성화\n' +
+            '• 재입장(들낙) 자동 감지 : 입장 횟수를 기록해 재입장 시 알림 제목과 색상을 구분 표시',
         },
         {
           name: '⚙️ 일반',
-          value: '• `/ping` : 봇의 응답 속도 확인\n• `/help` : 이 안내 메시지 확인',
+          value:
+            '• `/userinfo [유저]` : 유저 정보 확인 (이름, 계정 생성일, 서버 입장일, 입장 횟수, 포인트, 활동일, 메시지 수, 음성 시간, 역할)\n' +
+            '• `/ping` : 봇의 응답 속도 확인\n' +
+            '• `/help` : 이 안내 메시지 확인',
         }
       )
       .setFooter({ text: '관리자 권한이 있는 멤버만 모더레이션 명령어를 사용할 수 있습니다.' })
