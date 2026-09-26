@@ -17,7 +17,47 @@ export const BACKUP_SETTING_KEYS = [
   'welcomeMessage',
   'leaveChannelId',
   'leaveMessage',
+  'autoRoleId',
+  'nicknameLogChannelId',
+  'reactionRoles',
+  'reactionRolePanels',
 ];
+
+const SNOWFLAKE_PATTERN = /^\d{15,22}$/;
+
+/** 백업의 이모지 역할 매핑 배열에서 형식이 올바른 항목만 정리 */
+function sanitizeReactionRoles(list) {
+  return list
+    .filter(
+      m =>
+        m &&
+        typeof m === 'object' &&
+        SNOWFLAKE_PATTERN.test(m.roleId) &&
+        typeof m.emojiName === 'string' &&
+        m.emojiName.length > 0 &&
+        (m.emojiId == null || SNOWFLAKE_PATTERN.test(m.emojiId))
+    )
+    .map(m => ({
+      roleId: m.roleId,
+      emojiId: m.emojiId || null,
+      emojiName: m.emojiName,
+      emojiKey: m.emojiId || m.emojiName,
+      animated: Boolean(m.animated),
+      description: typeof m.description === 'string' ? m.description.slice(0, 100) : null,
+    }));
+}
+
+/** 백업의 패널 메시지 배열에서 형식이 올바른 항목만 정리 */
+function sanitizeReactionRolePanels(list) {
+  return list
+    .filter(p => p && typeof p === 'object' && SNOWFLAKE_PATTERN.test(p.messageId) && SNOWFLAKE_PATTERN.test(p.channelId))
+    .map(p => ({
+      messageId: p.messageId,
+      channelId: p.channelId,
+      title: typeof p.title === 'string' ? p.title.slice(0, 256) : null,
+      description: typeof p.description === 'string' ? p.description.slice(0, 1000) : null,
+    }));
+}
 
 /** 복원 시 허용하는 최대 파일 크기 (5MB) */
 export const MAX_BACKUP_FILE_BYTES = 5 * 1024 * 1024;
@@ -132,6 +172,10 @@ export function applyBackup(guild, backup, mode = 'merge') {
     const value = backup.settings[key];
     if (value === null || typeof value === 'string') {
       updates[key] = value;
+    } else if (key === 'reactionRoles' && Array.isArray(value)) {
+      updates[key] = sanitizeReactionRoles(value);
+    } else if (key === 'reactionRolePanels' && Array.isArray(value)) {
+      updates[key] = sanitizeReactionRolePanels(value);
     } else {
       skippedSettings.push(key);
     }
@@ -141,7 +185,7 @@ export function applyBackup(guild, backup, mode = 'merge') {
 
   // 백업에 기록된 채널이 현재 서버에 없으면 안내용으로 수집 (설정 자체는 그대로 복원)
   const missingChannels = [];
-  for (const key of ['joinToCreateChannelId', 'welcomeChannelId', 'leaveChannelId']) {
+  for (const key of ['joinToCreateChannelId', 'welcomeChannelId', 'leaveChannelId', 'nicknameLogChannelId']) {
     const channelId = updates[key];
     if (channelId && !guild.channels.cache.has(channelId)) {
       missingChannels.push(`${key}: ${channelId}`);

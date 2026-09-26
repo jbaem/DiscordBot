@@ -50,6 +50,10 @@ class SettingsManager {
         welcomeMessage: '환영합니다, {user} 님! **{server}**에 오신 것을 환영해요. (현재 멤버 수: {count}명)',
         leaveChannelId: config.leaveChannelId || null,
         leaveMessage: '**{userName}** 님이 서버를 떠났습니다. (남은 멤버 수: {count}명)',
+        autoRoleId: config.autoRoleId || null, // 신규 멤버 자동 역할 (null: 비활성화)
+        nicknameLogChannelId: null, // 닉네임 변경 로그 채널 (null: 비활성화)
+        reactionRoles: [], // 이모지 반응 역할 매핑 [{ roleId, emojiKey, emojiId, emojiName, animated, description }]
+        reactionRolePanels: [], // 게시된 패널 메시지 [{ messageId, channelId, title, description }]
       };
       this.saveToFile();
     }

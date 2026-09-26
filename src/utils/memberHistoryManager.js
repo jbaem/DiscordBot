@@ -16,6 +16,35 @@ if (!fs.existsSync(historyFilePath)) {
   fs.writeFileSync(historyFilePath, JSON.stringify({}, null, 2), 'utf-8');
 }
 
+/** 유저별로 보관할 최대 닉네임 변경 이력 수 */
+export const MAX_NICKNAME_HISTORY = 10;
+
+/** 닉네임 변경 이력 배열에서 형식이 올바른 항목만 정리 (최신순 정렬, 개수 제한) */
+function sanitizeNicknameHistory(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter(e => e && typeof e === 'object' && Number.isFinite(e.at) && e.at > 0)
+    .map(e => ({
+      at: e.at,
+      from: typeof e.from === 'string' ? e.from.slice(0, 32) : null,
+      to: typeof e.to === 'string' ? e.to.slice(0, 32) : null,
+    }))
+    .sort((a, b) => b.at - a.at)
+    .slice(0, MAX_NICKNAME_HISTORY);
+}
+
+/** 두 이력 배열을 합쳐 중복(같은 시각) 제거 후 정리 */
+function mergeNicknameHistory(a, b) {
+  const seen = new Set();
+  const merged = [];
+  for (const entry of sanitizeNicknameHistory([...(a || []), ...(b || [])])) {
+    if (seen.has(entry.at)) continue;
+    seen.add(entry.at);
+    merged.push(entry);
+  }
+  return merged.slice(0, MAX_NICKNAME_HISTORY);
+}
+
 /** 두 타임스탬프 중 유효한 값 기준으로 더 이른(작은) 값을 반환 */
 function earlierTimestamp(a, b) {
   const list = [a, b].filter(v => Number.isFinite(v) && v > 0);
@@ -94,6 +123,29 @@ class MemberHistoryManager {
   }
 
   /**
+   * 닉네임 변경 이력 기록 (최신순, 최대 MAX_NICKNAME_HISTORY 개 유지)
+   * @param {{ at: number, from: string|null, to: string|null }} change
+   */
+  recordNicknameChange(guildId, userId, change) {
+    if (!this.cache[guildId]) this.cache[guildId] = {};
+    if (!this.cache[guildId][userId]) {
+      // 입장 기록이 없는(봇 도입 이전) 멤버도 이력은 남김
+      this.cache[guildId][userId] = { joinCount: 1, firstJoinedAt: null, lastJoinedAt: null, lastLeftAt: null };
+    }
+    const record = this.cache[guildId][userId];
+    record.nicknameHistory = sanitizeNicknameHistory([change, ...(record.nicknameHistory || [])]);
+    this.saveToFile();
+    return record.nicknameHistory;
+  }
+
+  /**
+   * 특정 유저의 닉네임 변경 이력 조회 (최신순)
+   */
+  getNicknameHistory(guildId, userId) {
+    return [...(this.cache[guildId]?.[userId]?.nicknameHistory || [])];
+  }
+
+  /**
    * 특정 서버의 전체 멤버 이력 조회 (백업용 복사본 반환)
    */
   getGuildHistory(guildId) {
@@ -129,6 +181,7 @@ class MemberHistoryManager {
           firstJoinedAt: earlierTimestamp(record.firstJoinedAt, null),
           lastJoinedAt: laterTimestamp(record.lastJoinedAt, null),
           lastLeftAt: laterTimestamp(record.lastLeftAt, null),
+          nicknameHistory: sanitizeNicknameHistory(record.nicknameHistory),
         };
       } else {
         target[userId] = {
@@ -136,6 +189,7 @@ class MemberHistoryManager {
           firstJoinedAt: earlierTimestamp(existing.firstJoinedAt, record.firstJoinedAt),
           lastJoinedAt: laterTimestamp(existing.lastJoinedAt, record.lastJoinedAt),
           lastLeftAt: laterTimestamp(existing.lastLeftAt, record.lastLeftAt),
+          nicknameHistory: mergeNicknameHistory(existing.nicknameHistory, record.nicknameHistory),
         };
       }
       imported++;

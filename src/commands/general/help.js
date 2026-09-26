@@ -33,6 +33,16 @@ export default {
             '• `/backup import <파일> [모드]` : 백업 파일을 업로드해 설정과 이력 복원 (관리자)',
         },
         {
+          name: '🎭 역할 자동화',
+          value:
+            '• `/autorole setup [이름]` : 구성원 역할을 만들어 자동 역할로 지정하고 기존 멤버 전체에 부여 (기본 이름: 포켓몬)\n' +
+            '• `/autorole set <역할>` / `/autorole apply` : 기존 역할을 자동 역할로 지정 / 기존 멤버에게 일괄 부여\n' +
+            '• `/autorole view` / `/autorole disable` : 자동 역할 확인 / 비활성화\n' +
+            '• `/reactionrole add <역할> <이모지> [설명]` : 이모지를 누르면 받는 역할 등록 (예: 🎲 → 겜블러)\n' +
+            '• `/reactionrole panel [채널]` : 이모지 역할 패널 메시지 게시 (반응 추가 = 역할 부여, 해제 = 역할 제거)\n' +
+            '• `/reactionrole list` / `remove <역할>` / `refresh` : 목록 확인 / 등록 해제 / 패널 갱신',
+        },
+        {
           name: '👋 멤버 입장 / 퇴장 채널 및 메시지 커스텀',
           value:
             '• `/welcome channel <채널>` : 입장(환영) 알림을 보낼 텍스트 채널 지정\n' +
@@ -41,7 +51,9 @@ export default {
             '• `/leave channel <채널>` : 퇴장 알림을 보낼 텍스트 채널 지정\n' +
             '• `/leave message <문구>` : 퇴장 메시지 커스텀 (입장 메시지와 동일한 변수 지원)\n' +
             '• `/leave view` / `/leave test` / `/leave disable` : 퇴장 알림 확인 / 테스트 / 비활성화\n' +
-            '• 재입장(들낙) 자동 감지 : 입장 횟수를 기록해 재입장 시 알림 제목과 색상을 구분 표시',
+            '• 재입장(들낙) 자동 감지 : 입장 횟수를 기록해 재입장 시 알림 제목과 색상을 구분 표시\n' +
+            '• `/nicklog channel <채널>` : 닉네임 변경 로그 채널 지정 (변경 시각, 변경 전/후 이름 기록)\n' +
+            '• `/nicklog view` / `/nicklog disable` : 닉네임 로그 설정 확인 / 비활성화',
         },
         {
           name: '⚙️ 일반',

@@ -55,6 +55,7 @@ export default {
       const activity = activityManager.getUserActivity(guildId, member.id);
       const history = memberHistoryManager.getGuildHistory(guildId)[member.id];
       const joinCount = memberHistoryManager.getJoinCount(guildId, member.id);
+      const nicknameHistory = memberHistoryManager.getNicknameHistory(guildId, member.id);
 
       // 역할 목록 (@everyone 제외, 높은 순)
       const roles = member.roles.cache
@@ -106,7 +107,21 @@ export default {
           { name: '📅 서버 기록', value: historyLines.join('\n') },
           { name: '📊 활동', value: activityLines.join('\n') },
           { name: `🎭 역할 (${roles.size}개)`, value: rolesText }
-        )
+        );
+
+      // 최근 닉네임 변경 이력 (최대 3건)
+      if (nicknameHistory.length) {
+        const MAX_SHOWN = 3;
+        const lines = nicknameHistory.slice(0, MAX_SHOWN).map(h => {
+          const from = h.from ?? '(닉네임 없음)';
+          const to = h.to ?? '(닉네임 없음)';
+          return `• <t:${Math.floor(h.at / 1000)}:d> ${from} → **${to}**`;
+        });
+        if (nicknameHistory.length > MAX_SHOWN) lines.push(`… 외 ${nicknameHistory.length - MAX_SHOWN}건`);
+        embed.addFields({ name: `✏️ 최근 닉네임 변경 (${nicknameHistory.length}건)`, value: lines.join('\n') });
+      }
+
+      embed
         .setFooter({
           text: `포인트: 메시지 1개 ${POINTS_PER_MESSAGE}점(${MESSAGE_POINT_COOLDOWN_MS / 1000}초 쿨다운) · 음성 1분 ${POINTS_PER_VOICE_MINUTE}점 · 봇 도입 이후 활동만 집계`,
         })
