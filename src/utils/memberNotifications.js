@@ -43,7 +43,7 @@ export function buildWelcomeEmbed({ member, guild, settings, joinCount, test = f
       { name: '📊 입장 횟수', value: isRejoinText, inline: true },
       { name: '🕒 입장 시각', value: formatDateTime(joinedAt), inline: false }
     )
-    .setFooter({ text: test ? `테스트 발송 by ${testerTag}` : `유저 ID: ${member.id}` })
+    .setFooter({ text: test ? `테스트 발송 by ${testerTag}` : guild.name })
     .setTimestamp();
 }
 
@@ -69,7 +69,7 @@ export function buildLeaveEmbed({ member, guild, settings, joinCount, test = fal
     .setDescription(description || '​')
     .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
     .addFields(fields)
-    .setFooter({ text: test ? `테스트 발송 by ${testerTag}` : `유저 ID: ${member.id}` })
+    .setFooter({ text: test ? `테스트 발송 by ${testerTag}` : guild.name })
     .setTimestamp();
 }
 
