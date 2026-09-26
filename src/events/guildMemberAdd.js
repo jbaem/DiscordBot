@@ -2,6 +2,7 @@ import { EmbedBuilder, Events } from 'discord.js';
 import { config } from '../config.js';
 import { settingsManager } from '../utils/settingsManager.js';
 import { memberHistoryManager } from '../utils/memberHistoryManager.js';
+import { assignAutoRole } from '../utils/roleManager.js';
 
 export default {
   name: Events.GuildMemberAdd,
@@ -11,19 +12,16 @@ export default {
     // 입장 횟수(들낙) 카운트 기록
     const joinCount = memberHistoryManager.recordJoin(member.guild.id, member.id);
 
-    // 1. 자동 역할 부여
-    if (config.autoRoleId) {
-      try {
-        const role = member.guild.roles.cache.get(config.autoRoleId);
-        if (role) {
-          await member.roles.add(role);
-          console.log(`[AutoRole] ${member.user.tag} 님에게 '${role.name}' 역할 부여 완료`);
-        } else {
-          console.warn(`[AutoRole] 역할 ID(${config.autoRoleId})를 찾을 수 없습니다.`);
-        }
-      } catch (error) {
-        console.error('[AutoRole] 역할 부여 실패:', error);
+    // 1. 자동 역할 부여 (/autorole 설정 우선, 없으면 .env AUTO_ROLE_ID 폴백)
+    try {
+      const result = await assignAutoRole(member);
+      if (result.status === 'assigned') {
+        console.log(`[AutoRole] ${member.user.tag} 님에게 '${result.role.name}' 역할 부여 완료`);
+      } else if (result.status === 'missing' || result.status === 'failed') {
+        console.warn(`[AutoRole] ${member.user.tag} 역할 부여 불가: ${result.reason}`);
       }
+    } catch (error) {
+      console.error('[AutoRole] 역할 부여 실패:', error);
     }
 
     // 2. 환영 메시지 전송 (동적 설정 반영)
