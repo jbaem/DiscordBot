@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../core/permissions.js';
 import { settingsManager } from '../../stores/settingsManager.js';
 import {
@@ -8,15 +8,25 @@ import {
   parseEmojiInput,
   getReactionRoles,
   getReactionRolePanels,
-  buildReactionRolePanelEmbed,
-  ensurePanelReactions,
+  syncReactionRolePanel,
+  describePanelSync,
   mappingDisplay,
 } from '../../services/roleManager.js';
+
+/** 등록 목록이 바뀐 뒤 역할 패널 자동 갱신 (패널 채널이 없으면 안내만) */
+async function syncPanelText(guild) {
+  try {
+    return describePanelSync(await syncReactionRolePanel(guild));
+  } catch (error) {
+    console.error('[ReactionRole] 패널 자동 갱신 오류:', error);
+    return '⚠️ 패널을 갱신하지 못했습니다. 봇의 패널 채널 권한을 확인한 뒤 `/역할 갱신` 을 실행해 주세요.';
+  }
+}
 
 export default {
   tier: CommandTier.ADMIN,
   data: new SlashCommandBuilder()
-    .setName('이모지역할')
+    .setName('역할')
     .setDescription('이모지 반응으로 스스로 받고 해제하는 역할(예: 겜블러)을 설정합니다.')
     .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)
     .addSubcommand(sub =>
@@ -43,20 +53,14 @@ export default {
     .addSubcommand(sub =>
       sub
         .setName('패널')
-        .setDescription('이모지를 눌러 역할을 받는 패널 메시지를 채널에 게시합니다.')
-        .addChannelOption(opt =>
-          opt
-            .setName('채널')
-            .setDescription('패널을 게시할 텍스트 채널 (기본: 현재 채널)')
-            .addChannelTypes(ChannelType.GuildText)
-        )
-        .addStringOption(opt => opt.setName('제목').setDescription('패널 제목 (기본: 🎭 역할 선택)').setMaxLength(256))
-        .addStringOption(opt => opt.setName('설명').setDescription('패널 상단 안내 문구').setMaxLength(1000))
+        .setDescription('/연결 채널 역할패널 로 지정한 채널에 역할 패널을 게시하거나 갱신합니다. (항상 1개만 유지)')
+        .addStringOption(opt => opt.setName('제목').setDescription('패널 제목 (비우면 기존 제목 유지, 기본: 🎭 역할 선택)').setMaxLength(256))
+        .addStringOption(opt => opt.setName('설명').setDescription('패널 상단 안내 문구 (비우면 기존 문구 유지)').setMaxLength(1000))
     )
     .addSubcommand(sub =>
       sub
         .setName('갱신')
-        .setDescription('게시된 모든 패널을 현재 목록으로 갱신하고 누락된 이모지 반응을 다시 추가합니다.')
+        .setDescription('역할 패널을 현재 목록으로 갱신하고, 빠진 이모지 반응은 다시 달고 해제된 이모지는 정리합니다.')
     ),
 
   /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
@@ -128,19 +132,15 @@ export default {
         : [...current, mapping];
       settingsManager.updateGuildSettings(guildId, { reactionRoles: next });
 
-      const panels = getReactionRolePanels(guildId);
+      // 패널 갱신은 3초를 넘길 수 있으므로 지연 응답
+      await interaction.deferReply();
       const embed = new EmbedBuilder()
         .setColor(0x57F287)
         .setTitle(existingByRole ? '✅ 이모지 역할 수정 완료' : '✅ 이모지 역할 등록 완료')
         .setDescription(`${emoji.display} 이모지를 누르면 ${role} 역할이 부여됩니다.${description ? `\n설명: ${description}` : ''}`)
-        .addFields({
-          name: '다음 단계',
-          value: panels.length
-            ? '`/이모지역할 갱신` 를 실행하면 게시된 패널에 새 이모지가 추가됩니다.'
-            : '`/이모지역할 패널` 로 멤버들이 이모지를 누를 패널 메시지를 게시하세요.',
-        })
+        .addFields({ name: '패널', value: await syncPanelText(guild) })
         .setTimestamp();
-      return interaction.reply({ embeds: [embed] });
+      return interaction.editReply({ embeds: [embed] });
     }
 
     // 2. 등록 해제
@@ -153,12 +153,14 @@ export default {
       }
       settingsManager.updateGuildSettings(guildId, { reactionRoles: current.filter(m => m.roleId !== role.id) });
 
+      await interaction.deferReply();
       const embed = new EmbedBuilder()
         .setColor(0xED4245)
         .setTitle('🗑️ 이모지 역할 해제')
-        .setDescription(`${mappingDisplay(target)} ↔ ${role} 연결을 해제했습니다. 이미 역할을 가진 멤버는 그대로 유지됩니다.\n패널 메시지를 정리하려면 \`/이모지역할 갱신\` 를 실행하세요.`)
+        .setDescription(`${mappingDisplay(target)} ↔ ${role} 연결을 해제했습니다. 이미 역할을 가진 멤버는 그대로 유지됩니다.`)
+        .addFields({ name: '패널', value: await syncPanelText(guild) })
         .setTimestamp();
-      return interaction.reply({ embeds: [embed] });
+      return interaction.editReply({ embeds: [embed] });
     }
 
     // 3. 목록
@@ -173,11 +175,14 @@ export default {
               return `${mappingDisplay(m)} → ${role ?? `⚠️ 삭제된 역할 (\`${m.roleId}\`)`}${m.description ? ` · ${m.description}` : ''}`;
             })
             .join('\n')
-        : '등록된 이모지 역할이 없습니다. `/이모지역할 추가` 로 추가하세요.';
+        : '등록된 이모지 역할이 없습니다. `/역할 추가` 로 추가하세요.';
 
-      const panelText = panels.length
-        ? panels.map(p => `• https://discord.com/channels/${guildId}/${p.channelId}/${p.messageId}`).join('\n')
-        : '게시된 패널이 없습니다. `/이모지역할 패널` 로 게시하세요.';
+      const panelChannelId = settingsManager.resolveId(settingsManager.getGuildSettings(guildId), 'rolePanelChannelId');
+      const panelText =
+        (panelChannelId ? `패널 채널: <#${panelChannelId}>\n` : '패널 채널 미연결 · `/연결 채널 역할패널 <채널>` 로 지정하세요.\n') +
+        (panels.length
+          ? panels.map(p => `• https://discord.com/channels/${guildId}/${p.channelId}/${p.messageId}`).join('\n')
+          : '게시된 패널이 없습니다.');
 
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
@@ -190,88 +195,26 @@ export default {
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // 4. 패널 게시
-    if (subcommand === '패널') {
-      const channel = interaction.options.getChannel('채널') || interaction.channel;
-      const title = interaction.options.getString('제목')?.trim() || null;
-      const description = interaction.options.getString('설명')?.trim() || null;
-
-      const mappings = getReactionRoles(guildId).filter(m => guild.roles.cache.has(m.roleId));
-      if (!mappings.length) {
-        return interaction.reply({
-          content: '❌ 먼저 `/이모지역할 추가` 로 이모지와 역할을 하나 이상 등록해 주세요.',
-          ephemeral: true,
-        });
-      }
-
-      const me = guild.members.me;
-      const perms = channel.permissionsFor(me);
-      if (!perms?.has([PermissionFlagsBits.SendMessages, PermissionFlagsBits.AddReactions, PermissionFlagsBits.ReadMessageHistory])) {
-        return interaction.reply({
-          content: `❌ 봇에 ${channel} 채널의 **메시지 보내기 / 반응 추가 / 메시지 기록 보기** 권한이 필요합니다.`,
-          ephemeral: true,
-        });
+    // 4. 패널 게시/갱신 (지정 채널에 1개만 유지, 제목·설명을 넣으면 변경)
+    // 5. 패널 갱신 (현재 목록 반영)
+    if (subcommand === '패널' || subcommand === '갱신') {
+      const overrides = {};
+      if (subcommand === '패널') {
+        const title = interaction.options.getString('제목')?.trim();
+        const description = interaction.options.getString('설명')?.trim();
+        if (title) overrides.title = title;
+        if (description) overrides.description = description;
       }
 
       await interaction.deferReply({ ephemeral: true });
       try {
-        const embed = buildReactionRolePanelEmbed(guild, { title, description });
-        const message = await channel.send({ embeds: [embed] });
-        const reactResult = await ensurePanelReactions(message);
-
-        const panels = getReactionRolePanels(guildId);
-        settingsManager.updateGuildSettings(guildId, {
-          reactionRolePanels: [...panels, { messageId: message.id, channelId: channel.id, title, description }],
-        });
-
-        let content = `✅ ${channel} 채널에 역할 패널을 게시했습니다. (이모지 ${reactResult.reacted}개 추가)\n${message.url}`;
-        if (reactResult.failed.length) {
-          content += `\n⚠️ 추가하지 못한 이모지: ${reactResult.failed.join(' ')} — 이모지를 확인하고 \`/이모지역할 갱신\` 를 실행해 주세요.`;
-        }
-        return interaction.editReply({ content });
+        const result = await syncReactionRolePanel(guild, overrides);
+        const ok = result.status === 'created' || result.status === 'updated';
+        return interaction.editReply({ content: `${ok ? '✅' : '❌'} ${describePanelSync(result)}` });
       } catch (error) {
-        console.error('[ReactionRole] 패널 게시 오류:', error);
-        return interaction.editReply({ content: '❌ 패널을 게시하는 중 오류가 발생했습니다.' });
+        console.error('[ReactionRole] 패널 게시/갱신 오류:', error);
+        return interaction.editReply({ content: '❌ 패널을 게시하는 중 오류가 발생했습니다. 봇의 패널 채널 권한을 확인해 주세요.' });
       }
-    }
-
-    // 5. 패널 갱신
-    if (subcommand === '갱신') {
-      const panels = getReactionRolePanels(guildId);
-      if (!panels.length) {
-        return interaction.reply({ content: '❌ 게시된 패널이 없습니다. `/이모지역할 패널` 로 먼저 게시하세요.', ephemeral: true });
-      }
-
-      await interaction.deferReply({ ephemeral: true });
-      const kept = [];
-      let updated = 0;
-      let reacted = 0;
-      const failedEmojis = new Set();
-
-      for (const panel of panels) {
-        try {
-          const channel = await guild.channels.fetch(panel.channelId).catch(() => null);
-          if (!channel?.isTextBased()) continue; // 채널 삭제됨 → 패널 목록에서 제외
-          const message = await channel.messages.fetch(panel.messageId).catch(() => null);
-          if (!message) continue; // 메시지 삭제됨 → 제외
-
-          await message.edit({ embeds: [buildReactionRolePanelEmbed(guild, { title: panel.title, description: panel.description })] });
-          const reactResult = await ensurePanelReactions(message);
-          reacted += reactResult.reacted;
-          reactResult.failed.forEach(e => failedEmojis.add(e));
-          kept.push(panel);
-          updated++;
-        } catch (error) {
-          console.error(`[ReactionRole] 패널 갱신 실패 (${panel.messageId}):`, error.message);
-          kept.push(panel);
-        }
-      }
-
-      settingsManager.updateGuildSettings(guildId, { reactionRolePanels: kept });
-
-      let content = `✅ 패널 ${updated}개 갱신 완료 (이모지 ${reacted}개 추가, 삭제된 패널 ${panels.length - kept.length}개 정리)`;
-      if (failedEmojis.size) content += `\n⚠️ 추가하지 못한 이모지: ${[...failedEmojis].join(' ')}`;
-      return interaction.editReply({ content });
     }
   },
 };

@@ -27,11 +27,18 @@ export default {
         const channelName = buildTempVoiceName(settings.voiceNameTemplate, member, guild);
 
         // 새 개인 임시 음성 채널 생성
+        // - @everyone: 채널 관리 허용 → 방을 만든 사람이 아니어도 디스코드에서 방 이름을 직접 변경 가능
+        //   (디스코드는 이름 변경만 따로 허용할 수 없어 인원 제한 변경·방 삭제도 함께 가능)
+        // - 만든 사람: 음소거/스피커 끄기/멤버 이동 추가 허용
         newVoiceChannel = await guild.channels.create({
           name: channelName,
           type: ChannelType.GuildVoice,
           parent: parentId,
           permissionOverwrites: [
+            {
+              id: guild.roles.everyone.id,
+              allow: [PermissionFlagsBits.ManageChannels],
+            },
             {
               id: member.id,
               allow: [

@@ -2,7 +2,7 @@ import { Events } from 'discord.js';
 import { activityManager } from '../../stores/activityManager.js';
 
 /**
- * 메시지 작성 활동 기록 (메시지 수, 포인트, 활동일)
+ * 메시지 작성 활동 기록 (메시지 수, 활동일, 마지막 활동)
  * - MessageContent 인텐트 없이도 동작 (내용은 사용하지 않음)
  */
 export default {

@@ -5,7 +5,7 @@ import { activityManager } from '../stores/activityManager.js';
 /**
  * 백업 파일 포맷 버전 (구조가 바뀌면 올리고 parseBackup에서 하위 호환 처리)
  * - v1: settings + memberHistory
- * - v2: activity(포인트/활동일/메시지/음성 시간) 추가
+ * - v2: activity(활동일/메시지/음성 시간) 추가 (예전 백업의 points 값은 포인트 기능 제거로 무시)
  * - v3: 채널/역할 ID 의 false = 명시적 비활성화, null = 미설정(.env 폴백) 으로 구분
  */
 export const BACKUP_VERSION = 3;
@@ -20,6 +20,7 @@ export const BACKUP_SETTING_KEYS = [
   'leaveMessage',
   'autoRoleId',
   'nicknameLogChannelId',
+  'rolePanelChannelId',
   'reactionRoles',
   'reactionRolePanels',
 ];
@@ -91,17 +92,6 @@ export function createBackup(guild) {
     memberHistory: memberHistoryManager.getGuildHistory(guild.id),
     activity: activityManager.getGuildActivity(guild.id),
   };
-}
-
-/**
- * 백업 파일 이름 생성 (예: backup-123456789-20260926-1430.json)
- */
-export function buildBackupFileName(guildId, date = new Date()) {
-  const pad = n => String(n).padStart(2, '0');
-  const stamp =
-    `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
-    `-${pad(date.getHours())}${pad(date.getMinutes())}`;
-  return `backup-${guildId}-${stamp}.json`;
 }
 
 /**
@@ -191,7 +181,7 @@ export function applyBackup(guild, backup, mode = 'merge') {
 
   // 백업에 기록된 채널이 현재 서버에 없으면 안내용으로 수집 (설정 자체는 그대로 복원)
   const missingChannels = [];
-  for (const key of ['joinToCreateChannelId', 'welcomeChannelId', 'leaveChannelId', 'nicknameLogChannelId']) {
+  for (const key of ['joinToCreateChannelId', 'welcomeChannelId', 'leaveChannelId', 'nicknameLogChannelId', 'rolePanelChannelId']) {
     const channelId = updates[key];
     if (channelId && !guild.channels.cache.has(channelId)) {
       missingChannels.push(`${key}: ${channelId}`);

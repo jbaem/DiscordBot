@@ -37,6 +37,7 @@ const ENV_FALLBACKS = {
   joinToCreateChannelId: () => config.joinToCreateChannelId,
   autoRoleId: () => config.autoRoleId,
   nicknameLogChannelId: () => '',
+  rolePanelChannelId: () => '',
 };
 
 /** DISABLED 로 해제할 수 있는 ID 설정 키 목록 */
@@ -95,6 +96,7 @@ class SettingsManager {
         leaveMessage: DEFAULT_LEAVE_MESSAGE,
         autoRoleId: null, // 신규 멤버 자동 역할
         nicknameLogChannelId: null, // 닉네임 변경 로그 채널
+        rolePanelChannelId: null, // 이모지 역할 패널을 게시할 채널 (서버당 패널 1개만 유지)
         reactionRoles: [], // 이모지 반응 역할 매핑 [{ roleId, emojiKey, emojiId, emojiName, animated, description }]
         reactionRolePanels: [], // 게시된 패널 메시지 [{ messageId, channelId, title, description }]
       };

@@ -36,18 +36,18 @@ DiscordBot/
 ├── README.md                 # 사용자 안내 및 설정 문서
 ├── CONVENTIONS.md            # 본 컨벤션 문서
 ├── data/                     # [런타임] 서버별 설정 및 멤버 이력 JSON (Git 추적 제외, .gitkeep만 커밋)
+├── backups/                  # [런타임] /백업 내보내기 로 저장된 백업 JSON (Git 추적 제외, 실행 중 자동 생성)
 └── src/
     ├── index.js              # 애플리케이션 진입점 및 클라이언트 생성
     ├── config.js             # 환경 변수 유효성 검증 및 중앙 제공
     ├── core/                 # 봇 뼈대: commands/events 자동 로더, 명령어 등급(permissions)
     ├── commands/             # 슬래시 명령어 (카테고리별 디렉토리 분리)
-    │   ├── general/          # 모든 멤버용 유틸리티 (/도움말, /핑, /유저정보)
-    │   ├── server/           # 서버 설정 (/채널연결, /알림문구, /테스트, /백업)
-    │   ├── moderation/       # 채널 모더레이션 (/채널관리)
-    │   ├── roles/            # 역할 자동화 (/자동역할, /이모지역할)
-    │   └── voice/            # 임시 음성방 (/음성방, /음성방설정)
+    │   ├── general/          # 모든 멤버용 유틸리티 (/도움말, /핑, /정보)
+    │   ├── server/           # 서버 설정 (/연결, /문구, /테스트, /백업) · link/ = /연결 의 서브커맨드 그룹
+    │   ├── moderation/       # 서버 관리 (/관리) · manage/ = /관리 의 서브커맨드 그룹
+    │   └── roles/            # 역할 자동화 (/자동역할, /역할)
     ├── events/               # Discord Gateway 이벤트 핸들러 (분류별 폴더: client, guildMember, interaction, message, voice)
-    ├── stores/               # data/ JSON 영속화 (상태 저장소, Discord API 호출 없음)
+    ├── stores/               # data/, backups/ JSON 영속화 (상태 저장소, Discord API 호출 없음)
     ├── services/             # 명령어와 이벤트가 공유하는 기능별 비즈니스 로직
     └── utils/                # 상태 없는 순수 헬퍼 (템플릿 치환, 시간 표기)
 ```
@@ -77,9 +77,9 @@ DiscordBot/
 * **변수 및 함수**: `camelCase` (예: `loadCommands`, `newVoiceChannel`)
 * **상수**: 불변 전역 상수는 `UPPER_SNAKE_CASE` (예: `MAX_CLEAR_COUNT`)
 * **클래스**: `PascalCase` (예: `TempVoiceManager`)
-* **슬래시 명령어 및 옵션 이름**: 한글로 작성 (예: `/채널연결 입장알림 <채널>`, 옵션 `문구`). 공백 없이 최대 32자. 파일 이름은 영문 `camelCase` 유지 (예: `channelLink.js`)
+* **슬래시 명령어 및 옵션 이름**: 한글로 작성 (예: `/연결 채널 입장알림 <채널>`, 옵션 `문구`). 공백 없이 최대 32자. 파일 이름은 영문 `camelCase` 유지 (예: `reactionrole.js`)
 * **파일 이름**: 
-  * 명령어 및 유틸리티: `camelCase.js` (예: `tempVoiceManager.js`, `channelManage.js`)
+  * 명령어 및 유틸리티: `camelCase.js` (예: `tempVoiceManager.js`, `autorole.js`)
   * 이벤트 핸들러: 디스코드 이벤트명과 동일하게 작성 (예: `guildMember/guildMemberAdd.js`). 한 이벤트를 여러 기능이 처리하면 `<이벤트>.<기능>.js` (예: `client/clientReady.commands.js`)
 
 ### 4.3. Discord.js v14 표준 및 열거형(Enum) 사용
@@ -108,7 +108,7 @@ import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../core/permissions.js
 export default {
   tier: CommandTier.ADMIN, // 관리자 전용. 모든 멤버용이면 CommandTier.EVERYONE
   data: new SlashCommandBuilder()
-    .setName('명령어이름') // 한글 명령어 이름 (공백 없이 최대 32자, 예: '채널연결')
+    .setName('명령어이름') // 한글 명령어 이름 (공백 없이 최대 32자, 예: '자동역할')
     .setDescription('명령어에 대한 명확한 한글 설명')
     .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION), // 관리자 전용 명령어만 지정
 
@@ -172,7 +172,7 @@ export default {
    - 새 환경 변수 추가 시 반드시 `.env.example`에도 설명을 포함해 동일한 키를 등록해야 합니다.
 2. **권한 최소화 (Least Privilege)**:
    - 일반 유저에게 노출되어서는 안 되는 모더레이션 명령어는 반드시 `setDefaultMemberPermissions`를 명시합니다.
-   - 개인 음성 채널 권한 설정 시 `@everyone`과 방장의 권한(`PermissionFlagsBits`)을 명확히 분리합니다.
+   - 임시 음성 채널 권한은 `@everyone` 에 채널 관리(누구나 방 이름 변경용)만, 만든 사람에게 음소거·스피커 끄기·멤버 이동만 추가로 허용하고, 그 밖의 권한은 주지 않습니다.
 
 ---
 

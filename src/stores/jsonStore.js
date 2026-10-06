@@ -7,6 +7,8 @@ const __dirname = path.dirname(__filename);
 
 /** 런타임 JSON 데이터 디렉토리 (프로젝트 루트의 data/) */
 export const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+/** 백업 파일 디렉토리 (프로젝트 루트의 backups/) */
+export const BACKUP_DIR = path.join(__dirname, '..', '..', 'backups');
 
 /**
  * data/ 폴더의 JSON 파일 하나를 읽고 쓰는 저장소
@@ -16,19 +18,26 @@ export const DATA_DIR = path.join(__dirname, '..', '..', 'data');
  */
 export class JsonStore {
   /**
-   * @param {string} fileName data/ 폴더 안의 파일 이름 (예: 'guildSettings.json')
+   * @param {string} fileName 폴더 안의 파일 이름 (예: 'guildSettings.json')
    * @param {string} logTag 로그 접두사 (예: 'Settings')
+   * @param {string} [dir] 저장 폴더 (기본: data/)
    */
-  constructor(fileName, logTag) {
-    this.filePath = path.join(DATA_DIR, fileName);
+  constructor(fileName, logTag, dir = DATA_DIR) {
+    this.dir = dir;
+    this.filePath = path.join(dir, fileName);
     this.logTag = logTag;
+  }
+
+  /** 저장 폴더가 없으면 생성 */
+  ensureDir() {
+    if (!fs.existsSync(this.dir)) {
+      fs.mkdirSync(this.dir, { recursive: true });
+    }
   }
 
   /** 파일을 읽어 객체로 반환 (없으면 빈 객체) */
   load() {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
+    this.ensureDir();
     if (!fs.existsSync(this.filePath)) return {};
 
     let raw;
@@ -63,6 +72,7 @@ export class JsonStore {
     const json = JSON.stringify(data, null, 2);
     const tmpPath = `${this.filePath}.tmp`;
     try {
+      this.ensureDir();
       fs.writeFileSync(tmpPath, json, 'utf-8');
       fs.renameSync(tmpPath, this.filePath);
       return true;

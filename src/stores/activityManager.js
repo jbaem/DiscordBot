@@ -3,14 +3,8 @@ import { JsonStore } from './jsonStore.js';
 const store = new JsonStore('activity.json', 'Activity');
 
 // ─────────────────────────────────────────────────────────────
-// 포인트 / 활동 집계 규칙 (필요 시 이 값만 조정)
+// 활동 집계 규칙 (필요 시 이 값만 조정)
 // ─────────────────────────────────────────────────────────────
-/** 메시지 1개당 지급 포인트 */
-export const POINTS_PER_MESSAGE = 1;
-/** 메시지 포인트 지급 쿨다운 (ms) — 도배로 포인트를 얻는 것을 방지 */
-export const MESSAGE_POINT_COOLDOWN_MS = 60 * 1000;
-/** 음성 채널 1분당 지급 포인트 */
-export const POINTS_PER_VOICE_MINUTE = 1;
 /** 활동일 계산 기준 시간대 */
 export const ACTIVITY_TIMEZONE = 'Asia/Seoul';
 /** 파일 저장 디바운스 (ms) — 메시지마다 파일을 쓰지 않고 잠시 모아서 저장 */
@@ -30,7 +24,6 @@ export function toDayKey(timestamp = Date.now()) {
 
 function createEmptyRecord() {
   return {
-    points: 0,
     messages: 0,
     voiceSeconds: 0,
     activeDays: 0,
@@ -50,15 +43,13 @@ function toTimestampOrNull(value) {
 }
 
 /**
- * 유저 활동(메시지, 음성 시간, 포인트, 활동일) 추적 및 영속화 관리자
+ * 유저 활동(메시지 수, 음성 시간, 활동일, 마지막 활동) 추적 및 영속화 관리자
  */
 class ActivityManager {
   constructor() {
     this.cache = this.loadFromFile();
     /** 진행 중인 음성 세션: `${guildId}:${userId}` -> 시작 타임스탬프 */
     this.voiceSessions = new Map();
-    /** 메시지 포인트 마지막 지급 시각: `${guildId}:${userId}` -> 타임스탬프 (메모리만 유지) */
-    this.lastMessagePointAt = new Map();
     this.saveTimer = null;
     this.dirty = false;
 
@@ -73,7 +64,14 @@ class ActivityManager {
   }
 
   loadFromFile() {
-    return store.load();
+    const data = store.load();
+    // 포인트(레벨) 기능 제거 이전 기록에 남아 있는 points 값 정리 (다음 저장 때 파일에도 반영)
+    for (const records of Object.values(data)) {
+      for (const record of Object.values(records || {})) {
+        if (record && typeof record === 'object') delete record.points;
+      }
+    }
+    return data;
   }
 
   saveToFile() {
@@ -126,25 +124,13 @@ class ActivityManager {
   }
 
   /**
-   * 메시지 작성 기록. 쿨다운 안이면 메시지 수만 올리고 포인트는 지급하지 않음
-   * @returns {{ pointsAwarded: number }}
+   * 메시지 작성 기록 (메시지 수, 활동일, 마지막 활동 갱신)
    */
   recordMessage(guildId, userId, timestamp = Date.now()) {
     const record = this.getOrCreateRecord(guildId, userId);
     record.messages = (record.messages || 0) + 1;
     this.touchActivity(record, timestamp);
-
-    const key = `${guildId}:${userId}`;
-    const lastAwardedAt = this.lastMessagePointAt.get(key) || 0;
-    let pointsAwarded = 0;
-    if (timestamp - lastAwardedAt >= MESSAGE_POINT_COOLDOWN_MS) {
-      pointsAwarded = POINTS_PER_MESSAGE;
-      record.points = (record.points || 0) + pointsAwarded;
-      this.lastMessagePointAt.set(key, timestamp);
-    }
-
     this.scheduleSave();
-    return { pointsAwarded };
   }
 
   /** 음성 채널 접속 시작 (이미 세션이 있으면 무시) */
@@ -157,25 +143,23 @@ class ActivityManager {
 
   /**
    * 음성 채널 접속 종료 — 머문 시간을 정산해 기록
-   * @returns {{ seconds: number, pointsAwarded: number }}
+   * @returns {{ seconds: number }}
    */
   endVoiceSession(guildId, userId, timestamp = Date.now()) {
     const key = `${guildId}:${userId}`;
     const startedAt = this.voiceSessions.get(key);
-    if (!startedAt) return { seconds: 0, pointsAwarded: 0 };
+    if (!startedAt) return { seconds: 0 };
     this.voiceSessions.delete(key);
 
     const seconds = Math.max(0, Math.floor((timestamp - startedAt) / 1000));
-    if (seconds === 0) return { seconds: 0, pointsAwarded: 0 };
+    if (seconds === 0) return { seconds: 0 };
 
     const record = this.getOrCreateRecord(guildId, userId);
     record.voiceSeconds = (record.voiceSeconds || 0) + seconds;
-    const pointsAwarded = Math.floor(seconds / 60) * POINTS_PER_VOICE_MINUTE;
-    record.points = (record.points || 0) + pointsAwarded;
     this.touchActivity(record, timestamp);
 
     this.scheduleSave();
-    return { seconds, pointsAwarded };
+    return { seconds };
   }
 
   /** 진행 중인 세션이 있는지 확인 */
@@ -228,8 +212,8 @@ class ActivityManager {
       if (!/^\d{15,22}$/.test(userId)) continue;
       if (!record || typeof record !== 'object') continue;
 
+      // 예전 백업의 points 값은 가져오지 않음 (포인트 기능 제거)
       const clean = {
-        points: toNonNegativeInt(record.points),
         messages: toNonNegativeInt(record.messages),
         voiceSeconds: toNonNegativeInt(record.voiceSeconds),
         activeDays: toNonNegativeInt(record.activeDays),
@@ -244,7 +228,6 @@ class ActivityManager {
       } else {
         const laterIsIncoming = (clean.lastActiveAt || 0) >= (existing.lastActiveAt || 0);
         target[userId] = {
-          points: Math.max(existing.points || 0, clean.points),
           messages: Math.max(existing.messages || 0, clean.messages),
           voiceSeconds: Math.max(existing.voiceSeconds || 0, clean.voiceSeconds),
           activeDays: Math.max(existing.activeDays || 0, clean.activeDays),

@@ -11,7 +11,8 @@ node_modules/
 data/*
 !data/.gitkeep
 
-# /백업 내보내기 로 받은 백업 파일 (멤버 ID와 이력 포함)
+# 백업 파일 (멤버 ID와 이력 포함): 봇 서버의 backups/ 폴더, 내려받은 backup-*.json
+backups/
 backup-*.json
 
 # 로그
