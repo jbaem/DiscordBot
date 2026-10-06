@@ -49,6 +49,7 @@ export default {
         .setDescription('자동 역할 부여를 비활성화합니다.')
     ),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
     const guild = interaction.guild;

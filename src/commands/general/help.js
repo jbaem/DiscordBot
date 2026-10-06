@@ -80,6 +80,7 @@ export default {
     .setName('도움말')
     .setDescription('방 관리 봇의 사용 가능한 명령어 목록을 확인합니다.'),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const admin = isAdmin(interaction);
     const visibleSections = HELP_SECTIONS.filter(s => admin || s.tier === CommandTier.EVERYONE);

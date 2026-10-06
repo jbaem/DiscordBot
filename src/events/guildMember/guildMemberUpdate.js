@@ -15,6 +15,10 @@ function displayNickname(nickname, user) {
  */
 export default {
   name: Events.GuildMemberUpdate,
+  /**
+   * @param {import('discord.js').GuildMember | import('discord.js').PartialGuildMember} oldMember
+   * @param {import('discord.js').GuildMember} newMember
+   */
   async execute(oldMember, newMember) {
     // 캐시에 없던 멤버는 이전 닉네임을 알 수 없으므로 비교 불가
     if (oldMember.partial) return;

@@ -4,6 +4,7 @@ import { config } from '../../config.js';
 export default {
   name: Events.ClientReady,
   once: true,
+  /** @param {import('discord.js').Client<true>} client */
   async execute(client) {
     console.log(`========================================`);
     console.log(`🤖 봇 로그인 성공: ${client.user.tag}`);

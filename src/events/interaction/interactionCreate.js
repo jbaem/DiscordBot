@@ -3,6 +3,7 @@ import { canUseCommand } from '../../core/permissions.js';
 
 export default {
   name: Events.InteractionCreate,
+  /** @param {import('discord.js').Interaction} interaction */
   async execute(interaction) {
     if (!interaction.isChatInputCommand()) return;
 

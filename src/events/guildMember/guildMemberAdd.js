@@ -6,6 +6,7 @@ import { assignAutoRole } from '../../services/roleManager.js';
 
 export default {
   name: Events.GuildMemberAdd,
+  /** @param {import('discord.js').GuildMember} member */
   async execute(member) {
     console.log(`[Member] 신규 멤버 입장: ${member.user.tag}`);
 

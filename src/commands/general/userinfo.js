@@ -20,6 +20,7 @@ export default {
         .setDescription('정보를 확인할 유저 (비워두면 본인 정보, 다른 유저는 관리자만 조회 가능 · 본인에게만 표시)')
     ),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     if (!interaction.guild) {
       return interaction.reply({ content: '❌ 서버 안에서만 사용할 수 있습니다.', ephemeral: true });

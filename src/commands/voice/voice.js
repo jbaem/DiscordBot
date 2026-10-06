@@ -21,6 +21,7 @@ export default {
         )
     ),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const member = interaction.member;
     const voiceChannel = member.voice.channel;

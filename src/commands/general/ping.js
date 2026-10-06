@@ -7,6 +7,7 @@ export default {
     .setName('핑')
     .setDescription('봇의 응답 속도 및 웹소켓 핑을 확인합니다.')
     .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION),
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const sent = await interaction.reply({
       content: '핑 측정 중...',

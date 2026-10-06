@@ -5,6 +5,7 @@ import { memberHistoryManager } from '../../stores/memberHistoryManager.js';
 
 export default {
   name: Events.GuildMemberRemove,
+  /** @param {import('discord.js').GuildMember | import('discord.js').PartialGuildMember} member */
   async execute(member) {
     console.log(`[Member] 멤버 퇴장: ${member.user.tag}`);
 

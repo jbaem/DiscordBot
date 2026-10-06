@@ -6,6 +6,10 @@ import { handleReactionRole } from '../../services/roleManager.js';
  */
 export default {
   name: Events.MessageReactionAdd,
+  /**
+   * @param {import('discord.js').MessageReaction | import('discord.js').PartialMessageReaction} reaction
+   * @param {import('discord.js').User | import('discord.js').PartialUser} user
+   */
   async execute(reaction, user) {
     try {
       await handleReactionRole(reaction, user, 'add');

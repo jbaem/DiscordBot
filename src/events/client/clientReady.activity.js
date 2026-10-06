@@ -8,6 +8,7 @@ import { activityManager } from '../../stores/activityManager.js';
 export default {
   name: Events.ClientReady,
   once: true,
+  /** @param {import('discord.js').Client<true>} client */
   async execute(client) {
     try {
       const started = activityManager.bootstrapVoiceSessions(client);

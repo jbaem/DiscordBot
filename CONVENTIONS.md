@@ -31,6 +31,7 @@ DiscordBot/
 ├── .env                      # [보안] 로컬 환경 변수 (Git 추적 제외)
 ├── .env.example              # 환경 변수 템플릿
 ├── .gitignore                # Git 무시 파일 목록
+├── jsconfig.json             # VS Code 자동완성 설정 (실행과 무관)
 ├── package.json              # 패키지 명세 (ESM 설정 및 스크립트)
 ├── README.md                 # 사용자 안내 및 설정 문서
 ├── CONVENTIONS.md            # 본 컨벤션 문서
@@ -111,6 +112,7 @@ export default {
     .setDescription('명령어에 대한 명확한 한글 설명')
     .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION), // 관리자 전용 명령어만 지정
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */ // VS Code 자동완성용 타입
   async execute(interaction) {
     // 1. 사전 조건 검증 (채널 종류, 권한 등)
     if (!interaction.channel || !interaction.channel.isTextBased()) {
@@ -154,7 +156,8 @@ import { Events } from 'discord.js';
 export default {
   name: Events.GuildMemberAdd,
   once: false, // 1회성(ready 등)일 경우 true
-  async execute(...args) {
+  /** @param {import('discord.js').GuildMember} member */ // 이벤트 인자 타입 (VS Code 자동완성용)
+  async execute(member) {
     // 비즈니스 로직
   },
 };

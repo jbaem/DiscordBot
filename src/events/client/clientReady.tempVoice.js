@@ -8,6 +8,7 @@ import { reconcileTempChannels } from '../../services/tempVoiceChannels.js';
 export default {
   name: Events.ClientReady,
   once: true,
+  /** @param {import('discord.js').Client<true>} client */
   async execute(client) {
     try {
       const { kept, deleted, forgotten } = await reconcileTempChannels(client);
