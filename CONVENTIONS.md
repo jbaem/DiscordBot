@@ -7,7 +7,7 @@
 ## 1. 프로젝트 개요 및 핵심 원칙
 
 * **프로젝트명**: DiscordBot
-* **주요 목적**: 디스코드 서버의 임시 음성 채널 자동 생성/삭제(Join-to-Create), 채널 모더레이션(메시지 정리, 잠금, 슬로우 모드), 멤버 입장/퇴장 환영 및 자동 역할 부여.
+* **주요 목적**: 디스코드 서버의 임시 음성 채널 자동 생성/삭제(Join-to-Create), 채널 모더레이션(채널 잠금), 멤버 입장/퇴장 환영 및 자동 역할 부여.
 * **핵심 철학**:
   1. **모듈화 (Modularity)**: 새 명령어와 이벤트는 기존 코드를 수정하지 않고 파일 추가만으로 동작하도록 핸들러 기반 동적 로딩을 유지합니다.
   2. **안전성 (Fault Tolerance)**: 개별 명령어 또는 이벤트 실패가 전체 봇 프로세스 다운으로 이어지지 않도록 철저한 예외 처리를 수행합니다.
@@ -78,7 +78,7 @@ DiscordBot/
 * **클래스**: `PascalCase` (예: `TempVoiceManager`)
 * **슬래시 명령어 및 옵션 이름**: 한글로 작성 (예: `/채널연결 입장알림 <채널>`, 옵션 `문구`). 공백 없이 최대 32자. 파일 이름은 영문 `camelCase` 유지 (예: `channelLink.js`)
 * **파일 이름**: 
-  * 명령어 및 유틸리티: `camelCase.js` (예: `tempVoiceManager.js`, `slowmode.js`)
+  * 명령어 및 유틸리티: `camelCase.js` (예: `tempVoiceManager.js`, `channelManage.js`)
   * 이벤트 핸들러: 디스코드 이벤트명과 동일하게 작성 (예: `guildMember/guildMemberAdd.js`). 한 이벤트를 여러 기능이 처리하면 `<이벤트>.<기능>.js` (예: `client/clientReady.commands.js`)
 
 ### 4.3. Discord.js v14 표준 및 열거형(Enum) 사용

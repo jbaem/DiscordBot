@@ -17,7 +17,7 @@ export default {
     .addUserOption(opt =>
       opt
         .setName('유저')
-        .setDescription('정보를 확인할 유저 (비워두면 본인 정보를 DM으로 전송, 다른 유저는 관리자만 조회 가능)')
+        .setDescription('정보를 확인할 유저 (비워두면 본인 정보, 다른 유저는 관리자만 조회 가능 · 본인에게만 표시)')
     ),
 
   async execute(interaction) {
@@ -31,7 +31,7 @@ export default {
     // 다른 유저의 정보는 관리자만 조회 가능
     if (!isSelf && !isAdmin(interaction)) {
       return interaction.reply({
-        content: '🔒 다른 유저의 정보는 관리자만 볼 수 있습니다. 본인 정보는 유저를 비우고 `/유저정보` 를 실행하면 DM으로 받을 수 있습니다.',
+        content: '🔒 다른 유저의 정보는 관리자만 볼 수 있습니다. 본인 정보는 유저를 비우고 `/유저정보` 를 실행하면 확인할 수 있습니다.',
         ephemeral: true,
       });
     }
@@ -123,22 +123,7 @@ export default {
         })
         .setTimestamp();
 
-      if (isSelf) {
-        // 본인 정보는 DM으로 전송 (DM이 막혀 있으면 본인에게만 보이는 메시지로 대체)
-        try {
-          await interaction.user.send({ embeds: [embed] });
-          return interaction.reply({ content: '📩 내 정보를 DM으로 보냈습니다. 디스코드 DM을 확인해 주세요.', ephemeral: true });
-        } catch (dmError) {
-          console.warn(`[Command:userinfo] ${interaction.user.tag} DM 전송 실패 (DM 차단 가능): ${dmError.message}`);
-          return interaction.reply({
-            content: '⚠️ DM을 보낼 수 없어 여기에서 본인에게만 표시합니다. (서버 멤버의 DM 허용 설정을 확인해 주세요)',
-            embeds: [embed],
-            ephemeral: true,
-          });
-        }
-      }
-
-      // 관리자가 다른 유저를 조회한 경우: 관리자 본인에게만 표시
+      // 본인 조회, 관리자의 다른 유저 조회 모두 실행한 사람에게만 보이는 메시지로 표시
       await interaction.reply({ embeds: [embed], ephemeral: true });
     } catch (error) {
       console.error('[Command:userinfo] 에러:', error);
