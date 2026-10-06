@@ -4,7 +4,7 @@ const store = new JsonStore('tempVoiceChannels.json', 'TempVoice');
 
 /**
  * 생성된 임시 음성 채널들을 관리하는 저장소
- * - 봇이 재시작되어도 방장/삭제 대상 정보를 잃지 않도록 data/tempVoiceChannels.json 에 저장
+ * - 봇이 재시작되어도 자동 삭제 대상 정보를 잃지 않도록 data/tempVoiceChannels.json 에 저장
  */
 class TempVoiceManager {
   constructor() {
@@ -42,11 +42,6 @@ class TempVoiceManager {
 
   isTempChannel(channelId) {
     return this.channels.has(channelId);
-  }
-
-  isOwner(channelId, userId) {
-    const info = this.channels.get(channelId);
-    return info && info.ownerId === userId;
   }
 
   /** 저장된 모든 임시 채널 [channelId, info] 목록 (복사본) */

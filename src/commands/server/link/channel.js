@@ -1,13 +1,16 @@
-import { SlashCommandBuilder, PermissionFlagsBits, ChannelType, EmbedBuilder } from 'discord.js';
-import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../core/permissions.js';
-import { settingsManager, DISABLED } from '../../stores/settingsManager.js';
-import { CHANNEL_LINKS, resolveLinkedChannelId } from '../../services/channelLinks.js';
+import { PermissionFlagsBits, ChannelType, EmbedBuilder } from 'discord.js';
+import { settingsManager, DISABLED } from '../../../stores/settingsManager.js';
+import { CHANNEL_LINKS, resolveLinkedChannelId } from '../../../services/channelLinks.js';
 
-function buildData() {
-  const builder = new SlashCommandBuilder()
-    .setName('채널연결')
-    .setDescription('입장/퇴장 알림, 닉네임 로그, 임시 음성방 생성 채널을 연결합니다.')
-    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION);
+/**
+ * /연결 채널 — 입장/퇴장 알림, 닉네임 로그, 임시 음성방 생성 채널 연결
+ * (/연결 명령어의 서브커맨드 그룹, ../link.js 에서 조립)
+ * @param {import('discord.js').SlashCommandSubcommandGroupBuilder} builder
+ */
+function build(builder) {
+  builder
+    .setName('채널')
+    .setDescription('입장/퇴장 알림, 닉네임 로그, 임시 음성방 생성 채널을 연결합니다.');
 
   for (const [name, link] of Object.entries(CHANNEL_LINKS)) {
     builder.addSubcommand(sub =>
@@ -43,8 +46,8 @@ function buildData() {
 }
 
 export default {
-  tier: CommandTier.ADMIN,
-  data: buildData(),
+  name: '채널',
+  build,
 
   /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
@@ -76,7 +79,16 @@ export default {
         .setTitle(`✅ ${link.label} 채널 연결 완료`)
         .setDescription(link.doneText(channel))
         .setTimestamp();
-      return interaction.reply({ embeds: [embed] });
+      if (!link.onLink) return interaction.reply({ embeds: [embed] });
+
+      // 연결 후 작업(예: 역할 패널 게시)은 3초를 넘길 수 있으므로 지연 응답
+      await interaction.deferReply();
+      const extra = await link.onLink(guild).catch(error => {
+        console.error(`[ChannelLink] ${link.label} 연결 후 작업 오류:`, error);
+        return '⚠️ 연결은 완료했지만 후속 작업 중 오류가 발생했습니다. 봇의 채널 권한을 확인해 주세요.';
+      });
+      if (extra) embed.addFields({ name: '​', value: extra });
+      return interaction.editReply({ embeds: [embed] });
     }
 
     // 2. 전체 확인
@@ -95,7 +107,7 @@ export default {
         .setColor(0x5865F2)
         .setTitle('🔗 채널 연결 상태')
         .addFields(fields)
-        .setFooter({ text: '연결: /채널연결 <기능> <채널> · 해제: /채널연결 해제 <기능>' })
+        .setFooter({ text: '연결: /연결 채널 <기능> <채널> · 해제: /연결 채널 해제 <기능>' })
         .setTimestamp();
       return interaction.reply({ embeds: [embed] });
     }
@@ -114,9 +126,17 @@ export default {
       const embed = new EmbedBuilder()
         .setColor(0xED4245)
         .setTitle(`🚫 ${link.label} 연결 해제`)
-        .setDescription('채널 연결이 해제되어 해당 기능이 비활성화되었습니다. 다시 사용하려면 `/채널연결` 로 채널을 연결하세요.')
+        .setDescription('채널 연결이 해제되어 해당 기능이 비활성화되었습니다. 다시 사용하려면 `/연결 채널` 로 채널을 연결하세요.')
         .setTimestamp();
-      return interaction.reply({ embeds: [embed] });
+      if (!link.onUnlink) return interaction.reply({ embeds: [embed] });
+
+      await interaction.deferReply();
+      const extra = await link.onUnlink(guild).catch(error => {
+        console.error(`[ChannelLink] ${link.label} 해제 후 작업 오류:`, error);
+        return '';
+      });
+      if (extra) embed.addFields({ name: '​', value: extra });
+      return interaction.editReply({ embeds: [embed] });
     }
   },
 };
@@ -129,6 +149,8 @@ class PermissionsList {
     [PermissionFlagsBits.EmbedLinks, '링크 임베드'],
     [PermissionFlagsBits.ManageChannels, '채널 관리'],
     [PermissionFlagsBits.MoveMembers, '멤버 이동'],
+    [PermissionFlagsBits.AddReactions, '반응 추가'],
+    [PermissionFlagsBits.ReadMessageHistory, '메시지 기록 보기'],
   ]);
 
   constructor(flags) {

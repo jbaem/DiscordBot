@@ -1,18 +1,16 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../core/permissions.js';
+import { EmbedBuilder } from 'discord.js';
 
+/**
+ * /관리 채널 — 현재 텍스트 채널 잠금 / 잠금 해제
+ * (/관리 명령어의 서브커맨드 그룹, ../manage.js 에서 조립)
+ */
 export default {
-  tier: CommandTier.ADMIN,
-  data: new SlashCommandBuilder()
-    .setName('채널관리')
+  name: '채널',
+  /** @param {import('discord.js').SlashCommandSubcommandGroupBuilder} builder */
+  build: builder => builder
+    .setName('채널')
     .setDescription('현재 텍스트 채널을 잠그거나 잠금을 해제합니다.')
-    .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)
-    .addSubcommand(sub =>
-      sub
-        .setName('잠금')
-        .setDescription('현재 채널을 잠가 일반 멤버가 메시지를 보낼 수 없도록 합니다.')
-        .addStringOption(opt => opt.setName('사유').setDescription('채널을 잠그는 이유').setMaxLength(200))
-    )
+    .addSubcommand(sub => sub.setName('잠금').setDescription('현재 채널을 잠가 일반 멤버가 메시지를 보낼 수 없도록 합니다.'))
     .addSubcommand(sub => sub.setName('잠금해제').setDescription('잠긴 채널을 다시 활성화하여 채팅이 가능하게 합니다.')),
 
   /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
@@ -26,19 +24,17 @@ export default {
 
     // 1. 잠금
     if (subcommand === '잠금') {
-      const reason = interaction.options.getString('사유') || '사유 미지정';
       try {
         await channel.permissionOverwrites.edit(
           interaction.guild.roles.everyone,
           { SendMessages: false },
-          { reason: `채널 잠금 by ${interaction.user.tag}: ${reason}` }
+          { reason: `채널 잠금 by ${interaction.user.tag}` }
         );
 
         const embed = new EmbedBuilder()
           .setColor(0xED4245)
           .setTitle('🔒 채널이 잠겼습니다')
           .setDescription('관리자 외 일반 멤버는 현재 이 채널에서 메시지를 전송할 수 없습니다.')
-          .addFields({ name: '사유', value: reason })
           .setFooter({ text: `관리자: ${interaction.user.tag}` })
           .setTimestamp();
         return interaction.reply({ embeds: [embed] });

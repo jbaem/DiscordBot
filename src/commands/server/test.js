@@ -45,7 +45,7 @@ export default {
     const channelId = resolveLinkedChannelId(settings, test.linkName);
     if (!channelId) {
       return interaction.reply({
-        content: `❌ 먼저 \`/채널연결 ${test.linkName}\` 명령어로 알림 채널을 연결해 주세요.`,
+        content: `❌ 먼저 \`/연결 채널 ${test.linkName}\` 명령어로 알림 채널을 연결해 주세요.`,
         ephemeral: true,
       });
     }
@@ -53,7 +53,7 @@ export default {
     const channel = guild.channels.cache.get(channelId);
     if (!channel || !channel.isTextBased()) {
       return interaction.reply({
-        content: '❌ 연결된 채널을 찾을 수 없습니다. `/채널연결` 로 채널을 다시 연결해 주세요.',
+        content: '❌ 연결된 채널을 찾을 수 없습니다. `/연결 채널` 로 채널을 다시 연결해 주세요.',
         ephemeral: true,
       });
     }

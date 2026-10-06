@@ -1,19 +1,14 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { CommandTier, isAdmin } from '../../core/permissions.js';
 import { memberHistoryManager } from '../../stores/memberHistoryManager.js';
-import {
-  activityManager,
-  POINTS_PER_MESSAGE,
-  POINTS_PER_VOICE_MINUTE,
-  MESSAGE_POINT_COOLDOWN_MS,
-} from '../../stores/activityManager.js';
+import { activityManager } from '../../stores/activityManager.js';
 import { formatDate, formatDuration } from '../../utils/format.js';
 
 export default {
   tier: CommandTier.EVERYONE,
   data: new SlashCommandBuilder()
-    .setName('유저정보')
-    .setDescription('유저의 기본 정보와 서버 활동(포인트, 활동일, 입장일 등)을 확인합니다.')
+    .setName('정보')
+    .setDescription('내 정보를 확인합니다. (본인에게만 표시)')
     .addUserOption(opt =>
       opt
         .setName('유저')
@@ -32,7 +27,7 @@ export default {
     // 다른 유저의 정보는 관리자만 조회 가능
     if (!isSelf && !isAdmin(interaction)) {
       return interaction.reply({
-        content: '🔒 다른 유저의 정보는 관리자만 볼 수 있습니다. 본인 정보는 유저를 비우고 `/유저정보` 를 실행하면 확인할 수 있습니다.',
+        content: '🔒 다른 유저의 정보는 관리자만 볼 수 있습니다. 본인 정보는 유저를 비우고 `/정보` 를 실행하면 확인할 수 있습니다.',
         ephemeral: true,
       });
     }
@@ -78,7 +73,6 @@ export default {
       ].filter(Boolean);
 
       const activityLines = [
-        `• 포인트: **${(activity.points || 0).toLocaleString()}점**`,
         `• 활동일: **${(activity.activeDays || 0).toLocaleString()}일**`,
         `• 메시지: ${(activity.messages || 0).toLocaleString()}개`,
         `• 음성 채널: ${formatDuration(activity.voiceSeconds)}`,
@@ -118,11 +112,7 @@ export default {
         embed.addFields({ name: `✏️ 최근 닉네임 변경 (${nicknameHistory.length}건)`, value: lines.join('\n') });
       }
 
-      embed
-        .setFooter({
-          text: `포인트: 메시지 1개 ${POINTS_PER_MESSAGE}점(${MESSAGE_POINT_COOLDOWN_MS / 1000}초 쿨다운) · 음성 1분 ${POINTS_PER_VOICE_MINUTE}점 · 봇 도입 이후 활동만 집계`,
-        })
-        .setTimestamp();
+      embed.setFooter({ text: '활동·입장 횟수·닉네임 변경은 봇 도입 이후 기록만 집계 · 서버 AFK 채널 시간 제외' }).setTimestamp();
 
       // 본인 조회, 관리자의 다른 유저 조회 모두 실행한 사람에게만 보이는 메시지로 표시
       await interaction.reply({ embeds: [embed], ephemeral: true });

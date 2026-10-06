@@ -5,6 +5,21 @@ export default {
   name: Events.InteractionCreate,
   /** @param {import('discord.js').Interaction} interaction */
   async execute(interaction) {
+    // 옵션 자동완성 (명령어에 autocomplete 함수가 있을 때만, 사용 권한이 없으면 빈 목록)
+    if (interaction.isAutocomplete()) {
+      const command = interaction.client.commands.get(interaction.commandName);
+      if (!command?.autocomplete || !canUseCommand(interaction, command)) {
+        return interaction.respond([]).catch(() => {});
+      }
+      try {
+        await command.autocomplete(interaction);
+      } catch (error) {
+        console.error(`[Command] 자동완성 처리 중 에러 (${interaction.commandName}):`, error);
+        await interaction.respond([]).catch(() => {});
+      }
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     const command = interaction.client.commands.get(interaction.commandName);
