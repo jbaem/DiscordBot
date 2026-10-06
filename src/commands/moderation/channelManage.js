@@ -15,6 +15,7 @@ export default {
     )
     .addSubcommand(sub => sub.setName('잠금해제').setDescription('잠긴 채널을 다시 활성화하여 채팅이 가능하게 합니다.')),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
     const channel = interaction.channel;

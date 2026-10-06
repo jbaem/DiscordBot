@@ -46,6 +46,7 @@ export default {
   tier: CommandTier.ADMIN,
   data: buildData(),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
     const guild = interaction.guild;

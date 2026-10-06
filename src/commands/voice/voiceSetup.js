@@ -23,6 +23,7 @@ export default {
     )
     .addSubcommand(sub => sub.setName('확인').setDescription('현재 임시 음성방 설정 상태를 확인합니다.')),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
     const guild = interaction.guild;

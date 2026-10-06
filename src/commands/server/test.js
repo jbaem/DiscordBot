@@ -28,6 +28,7 @@ export default {
     .addSubcommand(sub => sub.setName('입장알림').setDescription('연결된 입장 알림 채널로 환영 메시지를 테스트 전송합니다.'))
     .addSubcommand(sub => sub.setName('퇴장알림').setDescription('연결된 퇴장 알림 채널로 퇴장 메시지를 테스트 전송합니다.')),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
     const guild = interaction.guild;

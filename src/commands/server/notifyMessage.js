@@ -40,6 +40,7 @@ export default {
     )
     .addSubcommand(sub => sub.setName('확인').setDescription('현재 설정된 입장/퇴장 문구와 미리보기를 확인합니다.')),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
     const guild = interaction.guild;

@@ -183,6 +183,7 @@ DiscordBot/
 ├── .env                      # 실제 봇 토큰 및 설정 파일 (Git 커밋 제외)
 ├── .gitignore
 ├── index.js                  # 호스팅 호환용 진입점 (src/index.js 로드)
+├── jsconfig.json             # VS Code 자동완성 설정 (실행과 무관)
 ├── package.json              # 프로젝트 의존성 및 실행 스크립트
 ├── README.md                 # 프로젝트 설명서
 ├── CONVENTIONS.md            # 개발 표준 및 AI 연동 컨벤션 가이드

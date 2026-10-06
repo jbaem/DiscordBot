@@ -8,6 +8,10 @@ import { activityManager } from '../../stores/activityManager.js';
  */
 export default {
   name: Events.VoiceStateUpdate,
+  /**
+   * @param {import('discord.js').VoiceState} oldState
+   * @param {import('discord.js').VoiceState} newState
+   */
   async execute(oldState, newState) {
     const member = newState.member || oldState.member;
     if (!member || member.user?.bot) return;

@@ -7,6 +7,7 @@ import { activityManager } from '../../stores/activityManager.js';
  */
 export default {
   name: Events.MessageCreate,
+  /** @param {import('discord.js').Message} message */
   async execute(message) {
     if (!message.guild) return; // DM 제외
     if (message.author?.bot || message.webhookId) return; // 봇/웹훅 제외

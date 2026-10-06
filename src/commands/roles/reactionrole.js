@@ -59,6 +59,7 @@ export default {
         .setDescription('게시된 모든 패널을 현재 목록으로 갱신하고 누락된 이모지 반응을 다시 추가합니다.')
     ),
 
+  /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
     const guild = interaction.guild;
