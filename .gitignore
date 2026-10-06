@@ -1,6 +1,27 @@
+# 의존성
 node_modules/
+
+# 환경 변수 (봇 토큰 등) — 템플릿(.env.example)만 커밋
 .env
-*.log
-.DS_Store
-data/*.json
+.env.*
+!.env.example
+
+# 런타임 데이터 (유저 ID, 입장/퇴장 이력, 활동 기록) — .gitkeep 만 커밋
+# 저장 중 임시 파일(*.json.tmp)과 손상 보관 파일(*.json.corrupt-*)도 포함
+data/*
 !data/.gitkeep
+
+# /백업 내보내기 로 받은 백업 파일 (멤버 ID와 이력 포함)
+backup-*.json
+
+# 로그
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Claude Code 로컬 작업 공간
+.claude/worktrees/
+.claude/settings.local.json

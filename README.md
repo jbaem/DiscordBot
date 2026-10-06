@@ -163,14 +163,8 @@ BOT_STATUS=
 
 ## 🚀 봇 실행 방법
 
-### 일반 실행
 ```bash
 npm start
-```
-
-### 개발 모드 (코드 수정 시 자동 재시작)
-```bash
-npm run dev
 ```
 
 ---
@@ -181,7 +175,7 @@ npm run dev
 DiscordBot/
 ├── .env.example              # 환경 변수 예시 템플릿
 ├── .env                      # 실제 봇 토큰 및 설정 파일 (Git 커밋 제외)
-├── .gitignore
+├── .gitignore                # 토큰(.env), 런타임 데이터(data/), 백업 파일(backup-*.json) 등 커밋 제외
 ├── index.js                  # 호스팅 호환용 진입점 (src/index.js 로드)
 ├── jsconfig.json             # VS Code 자동완성 설정 (실행과 무관)
 ├── package.json              # 프로젝트 의존성 및 실행 스크립트
