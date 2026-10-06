@@ -38,14 +38,23 @@ DiscordBot/
 └── src/
     ├── index.js              # 애플리케이션 진입점 및 클라이언트 생성
     ├── config.js             # 환경 변수 유효성 검증 및 중앙 제공
+    ├── core/                 # 봇 뼈대: commands/events 자동 로더, 명령어 등급(permissions)
     ├── commands/             # 슬래시 명령어 (카테고리별 디렉토리 분리)
-    │   ├── general/          # 일반 유틸리티 (/help, /ping 등)
-    │   ├── moderation/       # 관리자 전용 (/clear, /lock, /slowmode 등)
-    │   └── voice/            # 음성 채널 제어 (/voice 등)
-    ├── events/               # Discord Gateway 이벤트 핸들러
-    ├── handlers/             # commands 및 events 자동 로더
-    └── utils/                # 상태 관리 및 공통 비즈니스 로직
+    │   ├── general/          # 모든 멤버용 유틸리티 (/도움말, /핑, /유저정보)
+    │   ├── server/           # 서버 설정 (/채널연결, /알림문구, /테스트, /백업)
+    │   ├── moderation/       # 채널 모더레이션 (/채널관리)
+    │   ├── roles/            # 역할 자동화 (/자동역할, /이모지역할)
+    │   └── voice/            # 임시 음성방 (/음성방, /음성방설정)
+    ├── events/               # Discord Gateway 이벤트 핸들러 (분류별 폴더: client, guildMember, interaction, message, voice)
+    ├── stores/               # data/ JSON 영속화 (상태 저장소, Discord API 호출 없음)
+    ├── services/             # 명령어와 이벤트가 공유하는 기능별 비즈니스 로직
+    └── utils/                # 상태 없는 순수 헬퍼 (템플릿 치환, 시간 표기)
 ```
+
+**레이어 의존 방향**: `commands` / `events` → `services` → `stores` → `utils`
+* 명령어 파일끼리, 또는 명령어가 이벤트 파일을 import 하지 않습니다. 둘이 공유하는 로직은 `services/` 로 옮깁니다.
+* `stores/` 는 데이터 저장만 담당하고 Discord API 를 호출하지 않습니다. 저장은 반드시 `JsonStore` 를 사용해 원자적으로 처리합니다.
+* 채널/역할 ID 설정은 `null` = 미설정(.env 폴백), `DISABLED`(`false`) = 명시적 비활성화로 구분하며, 값을 읽을 때는 `settingsManager.resolveId()` 를 사용합니다.
 
 ---
 
@@ -57,7 +66,7 @@ DiscordBot/
   ```javascript
   // Good
   import { config } from '../config.js';
-  import { tempVoiceManager } from '../../utils/tempVoiceManager.js';
+  import { tempVoiceManager } from '../../stores/tempVoiceManager.js';
 
   // Bad
   const { config } = require('../config');
@@ -70,7 +79,7 @@ DiscordBot/
 * **슬래시 명령어 및 옵션 이름**: 한글로 작성 (예: `/채널연결 입장알림 <채널>`, 옵션 `문구`). 공백 없이 최대 32자. 파일 이름은 영문 `camelCase` 유지 (예: `channelLink.js`)
 * **파일 이름**: 
   * 명령어 및 유틸리티: `camelCase.js` (예: `tempVoiceManager.js`, `slowmode.js`)
-  * 이벤트 핸들러: 디스코드 이벤트명과 동일하게 작성 (예: `ready.js`, `guildMemberAdd.js`)
+  * 이벤트 핸들러: 디스코드 이벤트명과 동일하게 작성 (예: `guildMember/guildMemberAdd.js`). 한 이벤트를 여러 기능이 처리하면 `<이벤트>.<기능>.js` (예: `client/clientReady.commands.js`)
 
 ### 4.3. Discord.js v14 표준 및 열거형(Enum) 사용
 * 문자열 리터럴 대신 `discord.js`에서 제공하는 Enum 객체를 우선 사용합니다.
@@ -93,7 +102,7 @@ DiscordBot/
 
 ```javascript
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../core/permissions.js';
 
 export default {
   tier: CommandTier.ADMIN, // 관리자 전용. 모든 멤버용이면 CommandTier.EVERYONE
@@ -135,7 +144,9 @@ export default {
 ```
 
 ### 4.5. 이벤트 핸들러 작성 규칙
-모든 이벤트 파일은 `src/events/` 경로에 위치하며 아래 구조를 준수합니다:
+모든 이벤트 파일은 `src/events/<분류>/` 경로에 위치하며 아래 구조를 준수합니다.
+분류 폴더는 이벤트 이름의 앞부분을 따릅니다 (`client`, `guildMember`, `interaction`, `message`, `voice`, 새 분류가 필요하면 같은 방식으로 추가).
+한 이벤트를 여러 기능이 처리하면 `<이벤트>.<기능>.js` 로 나눕니다 (예: `voice/voiceStateUpdate.tempVoice.js`). 로더가 하위 폴더까지 읽고, 각 핸들러의 예외를 격리합니다:
 
 ```javascript
 import { Events } from 'discord.js';
@@ -188,7 +199,7 @@ AI 어시스턴트가 본 레포지토리의 코드를 생성, 수정, 리팩토
 1. **기존 주석 및 도큐멘테이션 보존**:
    - 수정한 파일 내에 작성되어 있는 한글 주석, JSDoc, 설명 문구를 임의로 삭제하거나 번역하지 않고 온전히 보존합니다.
 2. **동적 로더 호환성 유지**:
-   - 새 명령어나 이벤트를 만들 때 `src/index.js`에 수동으로 import하지 마십시오. 규정된 디렉토리(`src/commands/` 또는 `src/events/`)에 단일 파일을 생성하면 로더가 자동 인식합니다.
+   - 새 명령어나 이벤트를 만들 때 `src/index.js`에 수동으로 import하지 마십시오. 규정된 디렉토리(`src/commands/<카테고리>/` 또는 `src/events/<분류>/`)에 단일 파일을 생성하면 로더가 자동 인식합니다.
 3. **사용자 친화적 임베드 UI 유지**:
    - 봇의 응답은 텍스트 한 줄보다는 상태에 맞는 색상(성공: 초록 `0x57F287`, 경고: 노랑 `0xFEE75C`, 오류: 빨강 `0xED4245`, 안내: 디스코드 블루 `0x5865F2`)의 `EmbedBuilder`를 활용합니다.
 4. **Discord API 레이트 리밋(Rate Limit) 고려**:
