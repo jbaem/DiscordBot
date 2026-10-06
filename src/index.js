@@ -1,7 +1,7 @@
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import { config } from './config.js';
-import { loadCommands } from './handlers/commandHandler.js';
-import { loadEvents } from './handlers/eventHandler.js';
+import { loadCommands } from './core/commandHandler.js';
+import { loadEvents } from './core/eventHandler.js';
 
 // 클라이언트 생성 및 필요한 권한(Intents) 설정
 const client = new Client({

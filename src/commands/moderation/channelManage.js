@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../core/permissions.js';
 
 export default {
   tier: CommandTier.ADMIN,

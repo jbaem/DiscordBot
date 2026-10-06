@@ -1,29 +1,13 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { CommandTier, isAdmin } from '../../utils/permissions.js';
-import { memberHistoryManager } from '../../utils/memberHistoryManager.js';
+import { CommandTier, isAdmin } from '../../core/permissions.js';
+import { memberHistoryManager } from '../../stores/memberHistoryManager.js';
 import {
   activityManager,
   POINTS_PER_MESSAGE,
   POINTS_PER_VOICE_MINUTE,
   MESSAGE_POINT_COOLDOWN_MS,
-} from '../../utils/activityManager.js';
-
-/** 초 단위 시간을 "N시간 M분" 형태로 변환 */
-export function formatDuration(totalSeconds) {
-  const seconds = Math.max(0, Math.floor(totalSeconds || 0));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours === 0 && minutes === 0) return seconds > 0 ? '1분 미만' : '0분';
-  if (hours === 0) return `${minutes}분`;
-  return minutes > 0 ? `${hours.toLocaleString()}시간 ${minutes}분` : `${hours.toLocaleString()}시간`;
-}
-
-/** 타임스탬프(ms)를 디스코드 절대 + 상대 시간 표기로 변환 */
-function formatDate(timestamp) {
-  if (!timestamp) return '알 수 없음';
-  const sec = Math.floor(timestamp / 1000);
-  return `<t:${sec}:D> (<t:${sec}:R>)`;
-}
+} from '../../stores/activityManager.js';
+import { formatDate, formatDuration } from '../../utils/format.js';
 
 export default {
   tier: CommandTier.EVERYONE,

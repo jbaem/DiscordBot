@@ -27,7 +27,7 @@
 - `/채널연결 음성생성 <채널>` : 접속 시 개인 통화방이 생성되는 음성 채널 (Join-to-Create 트리거)
 - `/채널연결 확인` : 연결된 채널 전체 확인
 - `/채널연결 해제 <기능>` : 특정 기능의 채널 연결 해제(비활성화)
-- 슬래시 명령어로 연결하지 않은 서버는 `.env` 의 `WELCOME_CHANNEL_ID`, `LEAVE_CHANNEL_ID`, `JOIN_TO_CREATE_CHANNEL_ID` 를 폴백으로 사용합니다.
+- 슬래시 명령어로 연결하지 않은 서버는 `.env` 의 `WELCOME_CHANNEL_ID`, `LEAVE_CHANNEL_ID`, `JOIN_TO_CREATE_CHANNEL_ID` 를 폴백으로 사용합니다. `/채널연결 해제` 로 끈 기능은 `.env` 에 값이 있어도 비활성화 상태를 유지합니다.
 
 ### 2. 👋 멤버 입장 / 퇴장 알림
 - `/알림문구 입장 <문구>` / `/알림문구 퇴장 <문구>` : 알림 문구 설정 (변수 지원: `{user}`, `{userName}`, `{userTag}`, `{userId}`, `{server}`, `{count}`, `{joinedAt}`, `{joinedAtRelative}`, `{createdAt}`, `{accountAge}`, `{joinCount}`, `{isRejoin}`)
@@ -84,7 +84,7 @@
   - 활동: 포인트, 활동일 수, 메시지 수, 음성 채널 체류 시간, 마지막 활동 시각
   - 역할 목록
 - 활동은 봇이 켜져 있는 동안 자동으로 집계되어 `data/activity.json` 에 저장됩니다. (메시지 내용은 저장하지 않으며 `MESSAGE CONTENT INTENT` 가 필요하지 않습니다.)
-- 포인트 규칙 (`src/utils/activityManager.js` 상단 상수로 조정 가능):
+- 포인트 규칙 (`src/stores/activityManager.js` 상단 상수로 조정 가능):
   - 메시지 1개 = **1점** (60초 쿨다운, 도배 방지)
   - 음성 채널 1분 = **1점** (서버 AFK 채널 제외)
   - 활동일 = 메시지 또는 음성 활동이 있었던 날짜 수 (한국 시간 기준)
@@ -193,48 +193,64 @@ DiscordBot/
 ├── data/                     # 런타임 JSON 데이터 (Git 커밋 제외)
 │   ├── guildSettings.json    # 서버별 설정 (연결 채널, 문구, 역할 설정)
 │   ├── memberHistory.json    # 서버별 멤버 입장/퇴장 이력 (들낙 카운트, 닉네임 변경 이력)
-│   └── activity.json         # 서버별 유저 활동 (포인트, 활동일, 메시지 수, 음성 시간)
+│   ├── activity.json         # 서버별 유저 활동 (포인트, 활동일, 메시지 수, 음성 시간)
+│   └── tempVoiceChannels.json # 봇이 만든 임시 음성방 목록 (재시작 후에도 방장/자동 삭제 유지)
 └── src/
     ├── index.js              # 봇 진입점 (Intents, Partials 및 클라이언트 시작)
     ├── config.js             # 환경 변수 로더
-    ├── commands/             # 슬래시 명령어 폴더 (명령어 이름은 한글, 파일 이름은 영문)
+    ├── core/                 # 봇 뼈대
+    │   ├── commandHandler.js # 명령어 로더 (등급 검증)
+    │   ├── eventHandler.js   # 이벤트 로더 (분류 폴더 포함, 핸들러 예외 격리)
+    │   └── permissions.js    # 명령어 등급(관리자 전용 / 모든 멤버) 정의 및 권한 판정
+    ├── commands/             # 슬래시 명령어 (명령어 이름은 한글, 파일 이름은 영문)
     │   ├── general/
     │   │   ├── help.js       # /도움말
     │   │   ├── ping.js       # /핑
     │   │   └── userinfo.js   # /유저정보
-    │   ├── moderation/
-    │   │   ├── autorole.js   # /자동역할 — 신규 멤버 자동 역할 설정 및 일괄 부여
-    │   │   ├── backup.js     # /백업 — 서버 설정 및 멤버 이력 백업/복원
+    │   ├── server/           # 서버 설정
     │   │   ├── channelLink.js   # /채널연결 — 입장/퇴장/닉네임로그/음성생성 채널 연결
-    │   │   ├── channelManage.js # /채널관리 — 잠금, 잠금해제, 슬로우모드, 메시지삭제
     │   │   ├── notifyMessage.js # /알림문구 — 입장/퇴장 알림 문구 설정
-    │   │   ├── reactionrole.js  # /이모지역할 — 이모지 반응 역할 설정 및 패널 게시
     │   │   ├── test.js          # /테스트 — 입장/퇴장 알림 테스트 전송
-    │   │   └── voiceSetup.js    # /음성방설정 — 임시 음성방 자동설정, 이름서식
+    │   │   └── backup.js        # /백업 — 서버 설정 및 멤버 이력 백업/복원
+    │   ├── moderation/
+    │   │   └── channelManage.js # /채널관리 — 잠금, 잠금해제, 슬로우모드, 메시지삭제
+    │   ├── roles/
+    │   │   ├── autorole.js      # /자동역할 — 신규 멤버 자동 역할 설정 및 일괄 부여
+    │   │   └── reactionrole.js  # /이모지역할 — 이모지 반응 역할 설정 및 패널 게시
     │   └── voice/
-    │       └── voice.js      # /음성방 — 임시 음성방 제어 (이름, 인원, 잠금)
-    ├── events/               # 디스코드 이벤트 핸들러
-    │   ├── ready.js          # 봇 로그인 및 슬래시 커맨드 자동 등록
-    │   ├── activityBootstrap.js # 봇 시작 시 접속 중인 음성 세션 추적 시작
-    │   ├── interactionCreate.js # 슬래시 커맨드 수신, 권한 등급 검사 및 라우팅
-    │   ├── messageCreate.js     # 메시지 활동 기록 (포인트/활동일)
-    │   ├── messageReactionAdd.js    # 패널 이모지 반응 → 역할 부여
-    │   ├── messageReactionRemove.js # 패널 이모지 해제 → 역할 제거
-    │   ├── voiceStateUpdate.js  # 임시 음성 채널 생성 및 자동 삭제
-    │   ├── voiceActivityTracker.js # 음성 채널 체류 시간 기록
-    │   ├── guildMemberAdd.js    # 신규 멤버 환영 & 자동 역할 지급 & 입장 이력 기록
-    │   ├── guildMemberRemove.js # 멤버 퇴장 알림 & 퇴장 이력 기록
-    │   └── guildMemberUpdate.js # 닉네임 변경 감지 → 로그 채널 기록 & 이력 저장
-    ├── handlers/             # 동적 로더
-    │   ├── commandHandler.js # 명령어 로더 (등급 검증)
-    │   └── eventHandler.js   # 이벤트 로더
-    └── utils/
-        ├── permissions.js         # 명령어 등급(관리자 전용 / 모든 멤버) 정의 및 권한 판정
-        ├── activityManager.js     # 유저 활동(포인트, 활동일, 메시지, 음성 시간) 집계 및 저장
-        ├── backupManager.js       # 백업 파일 생성/검증/적용 로직
-        ├── memberHistoryManager.js # 멤버 입장/퇴장 이력(들낙 카운트) 및 닉네임 변경 이력 관리
-        ├── memberNotifications.js # 입장/퇴장 알림 임베드 빌더 (실제 알림과 테스트 공용)
-        ├── roleManager.js         # 자동 역할 / 이모지 반응 역할 공통 로직
-        ├── settingsManager.js     # 서버별 설정 저장/조회 및 메시지 템플릿 변수 치환
-        └── tempVoiceManager.js    # 임시 음성 채널 추적 관리 모듈
+    │       ├── voice.js         # /음성방 — 임시 음성방 제어 (이름, 인원, 잠금)
+    │       └── voiceSetup.js    # /음성방설정 — 임시 음성방 자동설정, 이름서식
+    ├── events/               # 디스코드 이벤트 핸들러 (폴더 = 이벤트 분류, 파일 = 이벤트 이름[.기능])
+    │   ├── client/
+    │   │   ├── clientReady.commands.js  # 봇 로그인 및 슬래시 커맨드 자동 등록
+    │   │   ├── clientReady.activity.js  # 봇 시작 시 접속 중인 음성 세션 추적 시작
+    │   │   └── clientReady.tempVoice.js # 봇 시작 시 비어 있는 임시 음성방 정리
+    │   ├── guildMember/
+    │   │   ├── guildMemberAdd.js    # 신규 멤버 환영 & 자동 역할 지급 & 입장 이력 기록
+    │   │   ├── guildMemberRemove.js # 멤버 퇴장 알림 & 퇴장 이력 기록
+    │   │   └── guildMemberUpdate.js # 닉네임 변경 감지 → 로그 채널 기록 & 이력 저장
+    │   ├── interaction/
+    │   │   └── interactionCreate.js # 슬래시 커맨드 수신, 권한 등급 검사 및 라우팅
+    │   ├── message/
+    │   │   ├── messageCreate.js         # 메시지 활동 기록 (포인트/활동일)
+    │   │   ├── messageReactionAdd.js    # 패널 이모지 반응 → 역할 부여
+    │   │   └── messageReactionRemove.js # 패널 이모지 해제 → 역할 제거
+    │   └── voice/
+    │       ├── voiceStateUpdate.tempVoice.js # 임시 음성 채널 생성 및 자동 삭제
+    │       └── voiceStateUpdate.activity.js  # 음성 채널 체류 시간 기록
+    ├── stores/               # data/ JSON 영속화 (상태 저장소)
+    │   ├── jsonStore.js           # 원자적 저장 및 손상 파일 보관을 처리하는 공용 JSON 저장소
+    │   ├── settingsManager.js     # 서버별 설정 저장/조회, .env 폴백 해석, 메시지 템플릿 변수 치환
+    │   ├── memberHistoryManager.js # 멤버 입장/퇴장 이력(들낙 카운트) 및 닉네임 변경 이력 관리
+    │   ├── activityManager.js     # 유저 활동(포인트, 활동일, 메시지, 음성 시간) 집계 및 저장
+    │   └── tempVoiceManager.js    # 임시 음성 채널 목록 저장
+    ├── services/             # 기능별 비즈니스 로직 (명령어와 이벤트가 공유)
+    │   ├── backupManager.js       # 백업 파일 생성/검증/적용 로직
+    │   ├── channelLinks.js        # /채널연결 기능 정의 및 연결 채널 조회
+    │   ├── memberNotifications.js # 입장/퇴장 알림 임베드 빌더 (실제 알림과 테스트 공용)
+    │   ├── roleManager.js         # 자동 역할 / 이모지 반응 역할 공통 로직
+    │   └── tempVoiceChannels.js   # 임시 음성방 이름 생성, 삭제, 시작 시 정리
+    └── utils/                # 상태 없는 순수 헬퍼
+        ├── format.js              # 시간/기간 표기 (디스코드 타임스탬프)
+        └── template.js            # 문구 템플릿 {변수} 치환
 ```

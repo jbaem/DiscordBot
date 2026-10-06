@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
-import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../utils/permissions.js';
-import { tempVoiceManager } from '../../utils/tempVoiceManager.js';
+import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../core/permissions.js';
+import { tempVoiceManager } from '../../stores/tempVoiceManager.js';
 
 export default {
   tier: CommandTier.ADMIN,

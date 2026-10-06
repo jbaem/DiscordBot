@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
-import { CommandTier, TIER_LABEL, isAdmin } from '../../utils/permissions.js';
+import { CommandTier, TIER_LABEL, isAdmin } from '../../core/permissions.js';
 
 /**
  * 도움말 섹션 정의
