@@ -10,8 +10,8 @@ export default {
   async execute(member) {
     console.log(`[Member] 신규 멤버 입장: ${member.user.tag}`);
 
-    // 입장 횟수(들낙) 카운트 기록
-    const joinCount = memberHistoryManager.recordJoin(member.guild.id, member.id);
+    // 입장 횟수(들낙) 카운트 기록 (처음 입장이면 입장 당시 이름도 저장)
+    const joinCount = memberHistoryManager.recordJoin(member.guild.id, member.id, member.displayName);
 
     // 1. 자동 역할 부여 (/autorole 설정 우선, 없으면 .env AUTO_ROLE_ID 폴백)
     try {

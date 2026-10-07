@@ -23,6 +23,7 @@ export const BACKUP_SETTING_KEYS = [
   'rolePanelChannelId',
   'reactionRoles',
   'reactionRolePanels',
+  'backupChannelId',
 ];
 
 const SNOWFLAKE_PATTERN = /^\d{15,22}$/;
@@ -181,7 +182,7 @@ export function applyBackup(guild, backup, mode = 'merge') {
 
   // 백업에 기록된 채널이 현재 서버에 없으면 안내용으로 수집 (설정 자체는 그대로 복원)
   const missingChannels = [];
-  for (const key of ['joinToCreateChannelId', 'welcomeChannelId', 'leaveChannelId', 'nicknameLogChannelId', 'rolePanelChannelId']) {
+  for (const key of ['joinToCreateChannelId', 'welcomeChannelId', 'leaveChannelId', 'nicknameLogChannelId', 'rolePanelChannelId', 'backupChannelId']) {
     const channelId = updates[key];
     if (channelId && !guild.channels.cache.has(channelId)) {
       missingChannels.push(`${key}: ${channelId}`);

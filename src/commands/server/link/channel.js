@@ -10,7 +10,7 @@ import { CHANNEL_LINKS, resolveLinkedChannelId } from '../../../services/channel
 function build(builder) {
   builder
     .setName('채널')
-    .setDescription('입장/퇴장 알림, 닉네임 로그, 임시 음성방 생성 채널을 연결합니다.');
+    .setDescription('알림, 로그, 임시 음성방, 역할 패널, 자동 백업 채널을 연결합니다.');
 
   for (const [name, link] of Object.entries(CHANNEL_LINKS)) {
     builder.addSubcommand(sub =>
@@ -151,6 +151,7 @@ class PermissionsList {
     [PermissionFlagsBits.MoveMembers, '멤버 이동'],
     [PermissionFlagsBits.AddReactions, '반응 추가'],
     [PermissionFlagsBits.ReadMessageHistory, '메시지 기록 보기'],
+    [PermissionFlagsBits.AttachFiles, '파일 첨부'],
   ]);
 
   constructor(flags) {

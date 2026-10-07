@@ -38,6 +38,7 @@ const ENV_FALLBACKS = {
   autoRoleId: () => config.autoRoleId,
   nicknameLogChannelId: () => '',
   rolePanelChannelId: () => '',
+  backupChannelId: () => '', // .env 폴백은 BACKUP_CHANNEL_ID(여러 서버 목록)로 autoBackup 에서 따로 처리
 };
 
 /** DISABLED 로 해제할 수 있는 ID 설정 키 목록 */
@@ -99,6 +100,7 @@ class SettingsManager {
         rolePanelChannelId: null, // 이모지 역할 패널을 게시할 채널 (서버당 패널 1개만 유지)
         reactionRoles: [], // 이모지 반응 역할 매핑 [{ roleId, emojiKey, emojiId, emojiName, animated, description }]
         reactionRolePanels: [], // 게시된 패널 메시지 [{ messageId, channelId, title, description }]
+        backupChannelId: null, // 자동 백업 파일을 올릴 채널
       };
       this.saveToFile();
     }

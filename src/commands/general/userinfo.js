@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { CommandTier, isAdmin } from '../../core/permissions.js';
 import { memberHistoryManager } from '../../stores/memberHistoryManager.js';
 import { activityManager } from '../../stores/activityManager.js';
@@ -68,6 +68,7 @@ export default {
         `• 서버 입장일: ${formatDate(member.joinedTimestamp)}`,
         memberDays !== null ? `• 함께한 기간: **${memberDays.toLocaleString()}일**` : null,
         `• 입장 횟수: **${rejoinText}**`,
+        history?.firstJoinName ? `• 처음 입장 이름: ${escapeMarkdown(history.firstJoinName)}` : null,
         history?.firstJoinedAt && joinCount > 1 ? `• 최초 입장 기록: ${formatDate(history.firstJoinedAt)}` : null,
         history?.lastLeftAt ? `• 마지막 퇴장: ${formatDate(history.lastLeftAt)}` : null,
       ].filter(Boolean);

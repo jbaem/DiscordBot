@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder, escapeMarkdown } from 'discord.js';
 import { CommandTier, ADMIN_DEFAULT_PERMISSION } from '../../core/permissions.js';
 import {
   createBackup,
@@ -17,6 +17,7 @@ const SETTING_PREVIEW = {
   nicknameLogChannelId: { label: '✏️ 닉네임 로그 채널', type: 'channel' },
   joinToCreateChannelId: { label: '🔊 음성방 생성 채널', type: 'channel' },
   rolePanelChannelId: { label: '🎭 역할 패널 채널', type: 'channel' },
+  backupChannelId: { label: '🗄️ 자동 백업 채널', type: 'channel' },
   autoRoleId: { label: '👤 자동 역할', type: 'role' },
   welcomeMessage: { label: '👋 입장 문구', type: 'text' },
   leaveMessage: { label: '🚪 퇴장 문구', type: 'text' },
@@ -49,19 +50,39 @@ function previewSettingValue(type, value) {
   }
 }
 
-/** 줄 목록을 칸 길이(1024자) 안에 맞추고 넘치면 "… 외 N명" 으로 줄임 */
-function fitLines(lines, emptyText, unit = '명') {
-  if (!lines.length) return emptyText;
-  const shown = [];
+/** 임베드 칸 하나의 최대 길이 */
+const FIELD_LIMIT = 1024;
+
+/**
+ * 줄 목록을 칸 길이(1024자)씩 나눔 — maxFields 칸을 넘치면 마지막 칸을 "… 외 N명" 으로 줄임
+ * @returns {string[]} 칸마다 들어갈 내용
+ */
+function chunkLines(lines, emptyText, { unit = '명', maxFields = 1 } = {}) {
+  if (!lines.length) return [emptyText];
+  const chunks = [[]];
   for (const [i, line] of lines.entries()) {
-    const more = `… 외 ${lines.length - i}${unit}`;
-    if ([...shown, line].join('\n').length + more.length + 1 > 1024) {
-      shown.push(more);
+    const current = chunks.at(-1);
+    if ([...current, line].join('\n').length <= FIELD_LIMIT) {
+      current.push(line);
+    } else if (chunks.length < maxFields) {
+      chunks.push([line]);
+    } else {
+      // 마지막 칸: "… 외 N명" 이 들어갈 자리를 남기고 줄임
+      let rest = lines.length - i;
+      while (current.length && [...current, `… 외 ${rest}${unit}`].join('\n').length > FIELD_LIMIT) {
+        current.pop();
+        rest++;
+      }
+      current.push(`… 외 ${rest}${unit}`);
       break;
     }
-    shown.push(line);
   }
-  return shown.join('\n');
+  return chunks.map(chunk => chunk.join('\n'));
+}
+
+/** 칸 내용 목록 → 임베드 칸 (첫 칸에만 제목, 이어지는 칸은 빈 제목) */
+function toFields(name, values) {
+  return values.map((value, i) => ({ name: i === 0 ? name : '​', value }));
 }
 
 /**
@@ -83,7 +104,8 @@ function buildPreviewEmbeds(backup) {
     .map(([userId, r]) => {
       const joined = r.lastJoinedAt ? ` · 최근 입장 <t:${Math.floor(r.lastJoinedAt / 1000)}:d>` : '';
       const nick = r.nicknameHistory?.length ? ` · 닉네임 변경 ${r.nicknameHistory.length}건` : '';
-      return `<@${userId}> 입장 ${r.joinCount || 1}회${joined}${nick}`;
+      const firstName = r.firstJoinName ? ` · 처음 이름 ${escapeMarkdown(r.firstJoinName)}` : '';
+      return `<@${userId}> 입장 ${r.joinCount || 1}회${firstName}${joined}${nick}`;
     });
 
   // 활동 기록: 메시지 + 음성 시간 많은 순
@@ -103,18 +125,21 @@ function buildPreviewEmbeds(backup) {
     )
     .addFields(
       { name: '⚙️ 설정', value: settingLines.join('\n') },
-      {
-        name: `👥 멤버 이력 (${history.length}명 · 재입장 ${rejoined}명 · 닉네임 변경 ${nickCount}건)`,
-        value: fitLines(historyLines, '기록 없음'),
-      }
+      // 메시지 전체 6000자 제한 안에 들도록 멤버 이력은 최대 3칸, 활동 기록은 1칸
+      ...toFields(
+        `👥 멤버 이력 (${history.length}명 · 재입장 ${rejoined}명 · 닉네임 변경 ${nickCount}건)`,
+        chunkLines(historyLines, '기록 없음', { maxFields: 3 })
+      )
     );
 
   const activityEmbed = new EmbedBuilder()
     .setColor(0x5865F2)
-    .addFields({
-      name: `📊 활동 기록 (${activity.length}명 · 메시지 ${totalMessages.toLocaleString()}개 · 음성 ${formatDuration(totalVoice)})`,
-      value: fitLines(activityLines, '기록 없음'),
-    })
+    .addFields(
+      ...toFields(
+        `📊 활동 기록 (${activity.length}명 · 메시지 ${totalMessages.toLocaleString()}개 · 음성 ${formatDuration(totalVoice)})`,
+        chunkLines(activityLines, '기록 없음')
+      )
+    )
     .setFooter({ text: '⚠️ 미리보기에도 멤버 ID와 이력이 표시되니 다른 사람에게 공유하지 마세요.' })
     .setTimestamp();
 
