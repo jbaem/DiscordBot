@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 /**
  * events/ 아래의 .js 파일 목록 (하위 폴더 포함)
- * - 폴더: 이벤트 분류 (client, guildMember, interaction, message, voice)
+ * - 폴더: 이벤트 분류 (client, guildMember, interaction, invite, message, voice)
  * - 파일: 이벤트 이름. 한 이벤트를 여러 기능이 처리하면 `<이벤트>.<기능>.js` (예: voice/voiceStateUpdate.tempVoice.js)
  */
 function collectEventFiles(dir) {

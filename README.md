@@ -38,6 +38,10 @@
 - `/테스트 입장알림` : 연결된 채널로 실제와 같은 형태의 입장 알림 테스트 전송
 - `/테스트 퇴장알림` : 연결된 채널로 실제와 같은 형태의 퇴장 알림 테스트 전송
 - 알림 임베드에는 **입장 시각**(입장 알림) 또는 **퇴장 시각과 함께한 기간**(퇴장 알림)이 표시됩니다. 멤버 수를 넣고 싶으면 문구에 `{count}` 변수를 사용하세요.
+- **초대자 표시**: 입장 알림에 `📨 초대` 칸으로 **초대한 사람과 사용한 초대 링크**를 표시합니다.
+  - 디스코드는 봇에게 어떤 링크로 들어왔는지 알려 주지 않으므로, 봇이 초대 링크별 사용 횟수를 기억해 두었다가 입장 직후 늘어난 링크를 찾습니다. 1회용 링크(사용 즉시 삭제)와 서버 고유 주소(`discord.gg/…`)도 구분합니다.
+  - 서버 찾기 등 링크 없이 들어왔거나 여러 명이 동시에 다른 링크로 들어오면 `확인 불가` 로 표시합니다.
+  - ⚠️ 초대 링크를 조회하려면 봇에 **서버 관리(Manage Server)** 권한이 필요합니다. 권한이 없으면 초대 칸 없이 알림만 보냅니다.
 - **재입장(들낙) 멤버 자동 감지**: 서버별 멤버 입장/퇴장 이력을 기록하여 재입장 시 알림의 제목과 색상을 구분해 표시
 - **닉네임 변경 로그**: 닉네임 로그 채널을 연결하면 멤버가 서버 닉네임을 바꿀 때마다 **변경 시각, 변경 전 이름, 변경 후 이름, 유저 정보**를 임베드로 기록
 
@@ -162,12 +166,13 @@
    - `applications.commands` (슬래시 명령어 사용을 위해 필수)
 3. **BOT PERMISSIONS**:
    - `Administrator` (가장 편리함) 또는 아래 권한 체크:
+     - `Manage Server` (서버 관리 — 입장 알림의 초대자 확인용)
      - `Manage Channels` (채널 관리)
      - `Manage Roles` (역할 관리)
      - `Manage Messages` (메시지 관리)
      - `Move Members` (음성 채널 멤버 이동)
      - `Connect`, `Speak` (음성 접속/발언)
-     - `Send Messages`, `Embed Links`, `Read Message History`
+     - `Send Messages`, `Embed Links`, `Attach Files`, `Read Message History`
 4. 하단에 생성된 URL을 복사하여 웹 브라우저 주소창에 넣고 자신의 서버에 초대합니다.
 
 ---
@@ -279,6 +284,7 @@ DiscordBot/
     │   │   ├── clientReady.commands.js  # 봇 로그인 및 슬래시 커맨드 자동 등록
     │   │   ├── clientReady.activity.js  # 봇 시작 시 접속 중인 음성 세션 추적 시작
     │   │   ├── clientReady.autoBackup.js # 봇 시작 시 채널 자동 백업 시작 (데이터가 없으면 복원)
+    │   │   ├── clientReady.invites.js   # 봇 시작 시 초대 링크 사용 횟수 기억 (초대자 확인용)
     │   │   └── clientReady.tempVoice.js # 봇 시작 시 비어 있는 임시 음성방 정리
     │   ├── guildMember/
     │   │   ├── guildMemberAdd.js    # 신규 멤버 환영 & 자동 역할 지급 & 입장 이력 기록
@@ -286,6 +292,8 @@ DiscordBot/
     │   │   └── guildMemberUpdate.js # 닉네임 변경 감지 → 로그 채널 기록 & 이력 저장
     │   ├── interaction/
     │   │   └── interactionCreate.js # 슬래시 커맨드 수신, 권한 등급 검사 및 라우팅
+    │   ├── invite/
+    │   │   └── inviteCreate.js      # 새 초대 링크 기억 (초대자 확인용)
     │   ├── message/
     │   │   ├── messageCreate.js         # 메시지 활동 기록 (메시지 수/활동일)
     │   │   ├── messageReactionAdd.js    # 패널 이모지 반응 → 역할 부여
@@ -304,6 +312,7 @@ DiscordBot/
     │   ├── autoBackup.js          # 디스코드 채널 자동 백업 (메시지 1개 수정, 시작 시 복원, 1시간마다·종료 시)
     │   ├── backupManager.js       # 백업 파일 생성/검증/적용 로직
     │   ├── channelLinks.js        # /연결 채널 기능 정의 및 연결 채널 조회
+    │   ├── inviteTracker.js       # 초대 링크 사용 횟수 비교로 입장 멤버의 초대자 찾기
     │   ├── memberNotifications.js # 입장/퇴장 알림 임베드 빌더 (실제 알림과 테스트 공용)
     │   ├── roleManager.js         # 자동 역할 / 이모지 반응 역할 공통 로직
     │   └── tempVoiceChannels.js   # 임시 음성방 이름 생성, 삭제, 시작 시 정리
