@@ -1,5 +1,5 @@
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
-import { config } from './config.js';
+import { config, describeToken } from './config.js';
 import { loadCommands } from './core/commandHandler.js';
 import { loadEvents } from './core/eventHandler.js';
 
@@ -33,10 +33,34 @@ async function startBot() {
     process.exit(1);
   }
 
+  // 토큰 진단 (토큰 값은 출력하지 않음) — 로그인 실패 시 어떤 값이 들어왔는지 구분하기 위함
+  const info = describeToken();
+  const SOURCE_LABEL = { 'host-env': '호스팅 패널 환경 변수', dotenv: '.env 파일', none: '없음' };
+  const idCheck = info.botId
+    ? `${info.botId}${config.clientId ? (info.botId === config.clientId ? ' (CLIENT_ID 와 일치)' : ' (⚠️ CLIENT_ID 와 다름)') : ''}`
+    : '알 수 없음 (봇 토큰 형식 아님)';
+  console.log(
+    `[Token] 출처: ${SOURCE_LABEL[info.source]} · 길이 ${info.length} · 조각 ${info.parts}개 · 토큰 속 봇 ID: ${idCheck}` +
+      (info.cleaned ? ' · 앞뒤 공백/따옴표/"DISCORD_TOKEN=" 을 정리함' : '') +
+      (info.hasInnerWhitespace ? ' · ⚠️ 토큰 중간에 공백/줄바꿈 있음' : '')
+  );
+
   try {
     await client.login(config.token);
   } catch (error) {
     console.error('❌ [오류] 봇 로그인에 실패했습니다:', error);
+    if (error.code === 'TokenInvalid') {
+      console.error('👉 디스코드가 토큰을 거부했습니다. 위 [Token] 줄을 확인하세요.');
+      console.error('   - 조각이 3개가 아니거나 봇 ID 를 알 수 없음: 봇 토큰이 아닌 값(Client Secret 등)이 들어감');
+      console.error('   - 봇 ID 가 CLIENT_ID 와 다름: 다른 봇의 토큰');
+      console.error('   - 형식은 맞음: 토큰이 재발급(Reset Token)되어 무효 → 새 토큰으로 교체');
+      console.error('   - 출처가 "호스팅 패널 환경 변수": .env 가 아니라 패널에 입력한 값이 사용 중');
+    }
+    // 실행 중으로 남아 있지 않도록 종료 (호스팅 패널에서 중지 상태로 보이게)
+    // 연결을 먼저 정리한 뒤 자연 종료, 남은 작업이 있으면 1초 뒤 강제 종료
+    await client.destroy().catch(() => {});
+    process.exitCode = 1;
+    setTimeout(() => process.exit(1), 1000).unref();
   }
 }
 
