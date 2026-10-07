@@ -1,0 +1,99 @@
+# main 에 push(머지)되면 디스호스트 API 로 봇을 재배포한다.
+# 필요한 설정 (저장소 Settings → Secrets and variables → Actions)
+# - Secrets   DISHOST_API_KEY : 디스호스트 대시보드 → 설정 → API Keys 에서 만든 키 (dsh_live_...)
+# - Variables DISHOST_BOT_ID  : (선택) 배포할 봇 ID. 비우면 API 키의 봇 목록에서 이 저장소와 연결된 봇을 찾는다.
+name: Deploy to DisHost
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # Actions 탭에서 수동 실행
+
+# 배포가 겹치지 않도록 하나씩 (진행 중인 배포는 취소하지 않음)
+concurrency:
+  group: dishost-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      API: https://api.dishost.kr/api/v1
+      DISHOST_API_KEY: ${{ secrets.DISHOST_API_KEY }}
+      DISHOST_BOT_ID: ${{ vars.DISHOST_BOT_ID }}
+    steps:
+      - name: 설정 확인
+        run: |
+          if [ -z "$DISHOST_API_KEY" ]; then
+            echo "::error::DISHOST_API_KEY 시크릿이 없습니다. 저장소 Settings → Secrets and variables → Actions 에 추가하세요."
+            exit 1
+          fi
+
+      - name: 배포할 봇 찾기
+        id: bot
+        run: |
+          if [ -n "$DISHOST_BOT_ID" ]; then
+            echo "id=$DISHOST_BOT_ID" >> "$GITHUB_OUTPUT"
+            echo "봇 ID: $DISHOST_BOT_ID (DISHOST_BOT_ID 변수)"
+            exit 0
+          fi
+
+          status=$(curl -sS -o bots.json -w '%{http_code}' -H "x-api-key: $DISHOST_API_KEY" "$API/bots")
+          if [ "$status" != "200" ]; then
+            echo "::error::봇 목록 조회 실패 (HTTP $status) — API 키를 확인하세요."
+            cat bots.json; exit 1
+          fi
+
+          # 응답이 배열이거나 { data | bots: [...] } 형태 모두 처리, 이 저장소(gitUrl)와 연결된 봇만
+          jq -r --arg repo "$GITHUB_REPOSITORY" '
+            (if type == "array" then . else (.data // .bots // []) end)
+            | map(select(((.gitUrl // .repoUrl // .repository // "") | tostring | ascii_downcase) | contains($repo | ascii_downcase)))
+            | .[] | (.id // ._id)' bots.json > matched.txt
+
+          if [ "$(grep -c . matched.txt)" != "1" ]; then
+            echo "::error::이 저장소($GITHUB_REPOSITORY)와 연결된 봇을 하나로 특정하지 못했습니다. DISHOST_BOT_ID 변수에 봇 ID를 넣어 주세요."
+            echo "API 키로 보이는 봇 목록:"
+            jq -r '(if type == "array" then . else (.data // .bots // []) end) | .[] | "- \(.name // "-") · ID \(.id // ._id) · \(.gitUrl // .repoUrl // "-") · 브랜치 \(.gitBranch // "-")"' bots.json || cat bots.json
+            exit 1
+          fi
+          echo "id=$(cat matched.txt)" >> "$GITHUB_OUTPUT"
+          echo "봇 ID: $(cat matched.txt) (저장소 연결로 자동 확인)"
+
+      - name: 배포 요청
+        id: deploy
+        env:
+          BOT_ID: ${{ steps.bot.outputs.id }}
+        run: |
+          body=$(jq -n --arg botId "$BOT_ID" '{botId: $botId}')
+          status=$(curl -sS -o deploy.json -w '%{http_code}' -X POST "$API/deployments" \
+            -H "x-api-key: $DISHOST_API_KEY" -H "Content-Type: application/json" -d "$body")
+          echo "HTTP $status"; jq . deploy.json 2>/dev/null || cat deploy.json
+          case "$status" in
+            2??) ;;
+            *) echo "::error::배포 요청 실패 (HTTP $status)"; exit 1 ;;
+          esac
+          echo "id=$(jq -r '(.id // .data.id // .deployment.id // empty)' deploy.json 2>/dev/null)" >> "$GITHUB_OUTPUT"
+
+      - name: 배포 결과 확인
+        if: steps.deploy.outputs.id != ''
+        env:
+          DEPLOY_ID: ${{ steps.deploy.outputs.id }}
+        run: |
+          # 최대 5분 동안 20초마다 상태 확인 (성공/실패가 나오면 종료)
+          for i in $(seq 1 15); do
+            sleep 20
+            curl -sS -H "x-api-key: $DISHOST_API_KEY" "$API/deployments/$DEPLOY_ID" -o status.json || continue
+            state=$(jq -r '(.status // .data.status // .state // "unknown") | tostring | ascii_downcase' status.json 2>/dev/null || true)
+            echo "[$((i * 20))초] 상태: $state"
+            case "$state" in
+              success|succeeded|completed|done|deployed) echo "✅ 배포 완료"; exit 0 ;;
+              fail|failed|error|errored|cancelled|canceled)
+                echo "::error::배포 실패"; jq . status.json; exit 1 ;;
+            esac
+          done
+          echo "::warning::5분 안에 완료 상태를 확인하지 못했습니다. 디스호스트 대시보드 → 봇 상세 → 배포 탭에서 확인하세요."
+          jq . status.json 2>/dev/null || true

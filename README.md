@@ -216,12 +216,21 @@ BACKUP_CHANNEL_ID=
 npm start
 ```
 
+### 디스호스트 자동 배포 (GitHub Actions)
+`main` 에 push(머지)되면 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) 이 디스호스트 API 로 봇을 재배포합니다. Actions 탭에서 **Deploy to DisHost → Run workflow** 로 수동 실행도 됩니다.
+1. 디스호스트 대시보드 → **설정 → API Keys** 에서 키 생성 (`dsh_live_...`)
+2. GitHub 저장소 **Settings → Secrets and variables → Actions**
+   - **Secrets** 탭 → `DISHOST_API_KEY` 에 키 저장 (코드나 채팅에 붙여 넣지 말 것)
+   - (선택) **Variables** 탭 → `DISHOST_BOT_ID` 에 봇 ID 저장. 비우면 이 저장소와 연결된 봇을 자동으로 찾고, 못 찾으면 실행 로그에 봇 목록을 보여 줍니다.
+3. 디스호스트 봇의 배포 브랜치(Git 브랜치)는 `main` 으로 둡니다.
+
 ---
 
 ## 📂 프로젝트 구조
 
 ```
 DiscordBot/
+├── .github/workflows/deploy.yml # main push 시 디스호스트 API 로 재배포
 ├── .env.example              # 환경 변수 예시 템플릿
 ├── .env                      # 실제 봇 토큰 및 설정 파일 (Git 커밋 제외)
 ├── .gitignore                # 토큰(.env), 런타임 데이터(data/), 백업(backups/, backup-*.json) 등 커밋 제외
