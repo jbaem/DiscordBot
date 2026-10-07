@@ -2,6 +2,9 @@ import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
 import { config, describeToken } from './config.js';
 import { loadCommands } from './core/commandHandler.js';
 import { loadEvents } from './core/eventHandler.js';
+import { activityManager } from './stores/activityManager.js';
+// 로그인 전에 불러와야 디스크에 원래 있던 데이터를 기준으로 시작 시 복원 여부를 판단할 수 있음
+import { stopAutoBackup } from './services/autoBackup.js';
 
 // 클라이언트 생성 및 필요한 권한(Intents) 설정
 const client = new Client({
@@ -65,6 +68,35 @@ async function startBot() {
     process.exitCode = 1;
     setTimeout(() => process.exit(1), 1000).unref();
   }
+}
+
+/** 종료 신호를 받은 뒤 백업을 기다리는 최대 시간 (넘으면 강제 종료) */
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+let shuttingDown = false;
+
+/** 종료 신호(SIGINT/SIGTERM): 채널에 마지막 백업을 올린 뒤 종료 */
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`🛑 ${signal} 수신: 종료 전 자동 백업 후 종료합니다...`);
+  setTimeout(() => {
+    console.warn(`[Shutdown] ${SHUTDOWN_TIMEOUT_MS / 1000}초 안에 끝나지 않아 강제 종료합니다.`);
+    process.exit(0);
+  }, SHUTDOWN_TIMEOUT_MS).unref();
+
+  try {
+    // 진행 중인 음성 시간을 정산해 마지막 백업에 포함
+    activityManager.finalizeAllVoiceSessions();
+    await stopAutoBackup();
+  } catch (error) {
+    console.error('[Shutdown] 종료 시 백업 오류:', error);
+  }
+  await client.destroy().catch(() => {});
+  process.exit(0);
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => shutdown(signal));
 }
 
 // 예외 처리
