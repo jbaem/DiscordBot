@@ -67,9 +67,15 @@ export function checkMemberCanManageRole(interaction, role) {
   return { ok: true };
 }
 
-/** 역할이 가진 위험 권한 이름 목록 (없으면 빈 배열) */
-export function getDangerousPermissions(role) {
-  return DANGEROUS_PERMISSIONS.filter(([flag]) => role.permissions.has(flag)).map(([, label]) => label);
+/**
+ * 역할이 가진 위험 권한 이름 목록 (없으면 빈 배열)
+ * @param {{ allowMentionEveryone?: boolean }} [options] allowMentionEveryone: @everyone 멘션 권한은 위험 권한에서 제외 (자동 역할용)
+ */
+export function getDangerousPermissions(role, { allowMentionEveryone = false } = {}) {
+  return DANGEROUS_PERMISSIONS
+    .filter(([flag]) => !(allowMentionEveryone && flag === PermissionFlagsBits.MentionEveryone))
+    .filter(([flag]) => role.permissions.has(flag))
+    .map(([, label]) => label);
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -61,7 +61,8 @@ export default {
     const validateRole = role => {
       const check = checkBotCanManageRole(guild, role);
       if (!check.ok) return `❌ ${check.reason}`;
-      const dangerous = getDangerousPermissions(role);
+      // @everyone 멘션 권한은 서버 방침에 따라 자동 역할에서는 허용 (이모지 역할은 계속 거부)
+      const dangerous = getDangerousPermissions(role, { allowMentionEveryone: true });
       if (dangerous.length) {
         return `❌ ${role} 역할에는 **${dangerous.join(', ')}** 권한이 있어 모든 신규 멤버에게 자동 부여할 수 없습니다. 일반 구성원용 역할을 사용해 주세요.`;
       }
