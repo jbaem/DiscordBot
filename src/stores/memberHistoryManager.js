@@ -5,14 +5,8 @@ const store = new JsonStore('memberHistory.json', 'MemberHistory');
 /** 유저별로 보관할 최대 닉네임 변경 이력 수 */
 export const MAX_NICKNAME_HISTORY = 10;
 
-/**
- * 같은 닉네임 변경으로 볼 시간 차이
- * (로그를 보고 분 단위로 복원한 백업 이력과, 봇이 실제로 기록한 이력의 몇 초 차이를 흡수)
- */
-const SAME_CHANGE_WINDOW_MS = 2 * 60 * 1000;
-
 /** 닉네임 변경 이력 배열에서 형식이 올바른 항목만 정리 (최신순 정렬, 개수 제한) */
-function sanitizeNicknameHistory(list, limit = MAX_NICKNAME_HISTORY) {
+function sanitizeNicknameHistory(list) {
   if (!Array.isArray(list)) return [];
   return list
     .filter(e => e && typeof e === 'object' && Number.isFinite(e.at) && e.at > 0)
@@ -22,21 +16,17 @@ function sanitizeNicknameHistory(list, limit = MAX_NICKNAME_HISTORY) {
       to: typeof e.to === 'string' ? e.to.slice(0, 32) : null,
     }))
     .sort((a, b) => b.at - a.at)
-    .slice(0, limit);
+    .slice(0, MAX_NICKNAME_HISTORY);
 }
 
-/**
- * 두 이력 배열을 합쳐 중복 제거 후 정리
- * - 변경 전·후 이름이 같고 2분 이내면 같은 변경으로 보고 하나만 남김
- * - 중복을 먼저 지운 뒤 최대 개수로 자름 (중복 때문에 남아야 할 이력이 잘리지 않도록)
- */
+/** 두 이력 배열을 합쳐 중복(같은 시각) 제거 후 정리 */
 function mergeNicknameHistory(a, b) {
+  const seen = new Set();
   const merged = [];
-  for (const entry of sanitizeNicknameHistory([...(a || []), ...(b || [])], Infinity)) {
-    const duplicate = merged.some(
-      m => m.from === entry.from && m.to === entry.to && Math.abs(m.at - entry.at) <= SAME_CHANGE_WINDOW_MS
-    );
-    if (!duplicate) merged.push(entry);
+  for (const entry of sanitizeNicknameHistory([...(a || []), ...(b || [])])) {
+    if (seen.has(entry.at)) continue;
+    seen.add(entry.at);
+    merged.push(entry);
   }
   return merged.slice(0, MAX_NICKNAME_HISTORY);
 }
