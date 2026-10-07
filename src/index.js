@@ -39,17 +39,20 @@ async function startBot() {
   const idCheck = info.botId
     ? `${info.botId}${config.clientId ? (info.botId === config.clientId ? ' (CLIENT_ID 와 일치)' : ' (⚠️ CLIENT_ID 와 다름)') : ''}`
     : '알 수 없음 (봇 토큰 형식 아님)';
-  console.log(
+  const tokenSummary =
     `[Token] 출처: ${SOURCE_LABEL[info.source]} · 길이 ${info.length} · 조각 ${info.parts}개 · 토큰 속 봇 ID: ${idCheck}` +
-      (info.cleaned ? ' · 앞뒤 공백/따옴표/"DISCORD_TOKEN=" 을 정리함' : '') +
-      (info.hasInnerWhitespace ? ' · ⚠️ 토큰 중간에 공백/줄바꿈 있음' : '')
-  );
+    ` · 가운데 조각: ${info.issued ?? '-'} · 지문: ${info.fingerprint ?? '-'}` +
+    (info.cleaned ? ' · 앞뒤 공백/따옴표/"DISCORD_TOKEN=" 을 정리함' : '') +
+    (info.hasInnerWhitespace ? ' · ⚠️ 토큰 중간에 공백/줄바꿈 있음' : '');
+  console.log(tokenSummary);
 
   try {
     await client.login(config.token);
   } catch (error) {
     console.error('❌ [오류] 봇 로그인에 실패했습니다:', error);
     if (error.code === 'TokenInvalid') {
+      // 진단 줄을 오류 바로 아래에도 다시 출력 (콘솔에서 위쪽 줄을 찾지 않아도 되게)
+      console.error(tokenSummary);
       console.error('👉 디스코드가 토큰을 거부했습니다. 위 [Token] 줄을 확인하세요.');
       console.error('   - 조각이 3개가 아니거나 봇 ID 를 알 수 없음: 봇 토큰이 아닌 값(Client Secret 등)이 들어감');
       console.error('   - 봇 ID 가 CLIENT_ID 와 다름: 다른 봇의 토큰');

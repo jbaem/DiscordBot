@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import dotenv from 'dotenv';
 
 // dotenv 는 이미 있는 환경 변수를 덮어쓰지 않으므로, 호스팅 패널에서 넣은 값이 .env 보다 우선한다.
@@ -35,6 +36,8 @@ export const config = {
  * 토큰 진단 정보 (토큰 값 자체는 포함하지 않음)
  * - source: 'host-env' (호스팅 패널 환경 변수) | 'dotenv' (.env 파일) | 'none'
  * - botId: 토큰 첫 조각에 들어 있는 봇 ID (공개 정보, CLIENT_ID 와 비교용)
+ * - issued: 토큰 가운데 조각 (발급 시각 정보, 비밀 아님) — 재발급하면 바뀌므로 어떤 토큰인지 구분용
+ * - fingerprint: 토큰 SHA-256 앞 8자리 — 토큰을 되돌릴 수 없고, 다른 곳의 토큰과 같은 값인지 비교용
  */
 export function describeToken() {
   const token = config.token;
@@ -51,6 +54,8 @@ export function describeToken() {
     length: token.length,
     parts: parts.length,
     botId,
+    issued: parts.length === 3 ? parts[1] : null,
+    fingerprint: token ? createHash('sha256').update(token).digest('hex').slice(0, 8) : null,
     cleaned: rawToken !== token,
     hasInnerWhitespace: /\s/.test(token),
   };
