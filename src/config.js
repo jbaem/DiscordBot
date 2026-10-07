@@ -30,6 +30,11 @@ export const config = {
   leaveChannelId: process.env.LEAVE_CHANNEL_ID || '',
   autoRoleId: process.env.AUTO_ROLE_ID || '',
   botStatus: process.env.BOT_STATUS || '/도움말', // 봇 프로필 말풍선(커스텀 상태) 문구
+  // 자동 백업을 올릴 채널 ID (쉼표로 여러 개, 서버마다 1개) — data/ 가 지워져도 남도록 호스팅 패널 환경 변수로 지정
+  backupChannelIds: (process.env.BACKUP_CHANNEL_ID || '')
+    .split(',')
+    .map(id => id.trim())
+    .filter(Boolean),
 };
 
 /**

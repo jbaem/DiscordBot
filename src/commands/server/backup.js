@@ -8,6 +8,118 @@ import {
   MAX_BACKUP_FILE_BYTES,
 } from '../../services/backupManager.js';
 import { backupStore, BACKUP_TAG_LABEL, MAX_LOCAL_BACKUPS_PER_GUILD } from '../../stores/backupStore.js';
+import { formatDuration } from '../../utils/format.js';
+
+/** 백업 설정 키 → 미리보기 표시 이름과 값 종류 */
+const SETTING_PREVIEW = {
+  welcomeChannelId: { label: '👋 입장 알림 채널', type: 'channel' },
+  leaveChannelId: { label: '🚪 퇴장 알림 채널', type: 'channel' },
+  nicknameLogChannelId: { label: '✏️ 닉네임 로그 채널', type: 'channel' },
+  joinToCreateChannelId: { label: '🔊 음성방 생성 채널', type: 'channel' },
+  rolePanelChannelId: { label: '🎭 역할 패널 채널', type: 'channel' },
+  autoRoleId: { label: '👤 자동 역할', type: 'role' },
+  welcomeMessage: { label: '👋 입장 문구', type: 'text' },
+  leaveMessage: { label: '🚪 퇴장 문구', type: 'text' },
+  voiceNameTemplate: { label: '📝 음성방 이름 서식', type: 'text' },
+  reactionRoles: { label: '🎭 이모지 역할', type: 'reactionRoles' },
+  reactionRolePanels: { label: '📌 역할 패널 메시지', type: 'count' },
+};
+
+/** 미리보기용 설정 값 한 줄 (null = 미설정, false = 해제됨) */
+function previewSettingValue(type, value) {
+  if (value === null || value === undefined || value === '') return '미설정';
+  if (value === false) return '해제됨';
+  switch (type) {
+    case 'channel':
+      return `<#${value}>`;
+    case 'role':
+      return `<@&${value}>`;
+    case 'text': {
+      const oneLine = String(value).replace(/\n/g, ' ');
+      return `\`${oneLine.length > 60 ? `${oneLine.slice(0, 60)}…` : oneLine}\``;
+    }
+    case 'reactionRoles':
+      return Array.isArray(value) && value.length
+        ? `${value.length}개 · ${value.map(m => (m.emojiId ? `<${m.animated ? 'a' : ''}:${m.emojiName}:${m.emojiId}>` : m.emojiName)).join(' ')}`
+        : '없음';
+    case 'count':
+      return Array.isArray(value) ? `${value.length}개` : '없음';
+    default:
+      return String(value);
+  }
+}
+
+/** 줄 목록을 칸 길이(1024자) 안에 맞추고 넘치면 "… 외 N명" 으로 줄임 */
+function fitLines(lines, emptyText, unit = '명') {
+  if (!lines.length) return emptyText;
+  const shown = [];
+  for (const [i, line] of lines.entries()) {
+    const more = `… 외 ${lines.length - i}${unit}`;
+    if ([...shown, line].join('\n').length + more.length + 1 > 1024) {
+      shown.push(more);
+      break;
+    }
+    shown.push(line);
+  }
+  return shown.join('\n');
+}
+
+/**
+ * 백업 객체 → 미리보기 임베드 (파일을 만들지 않고 내용만 확인)
+ * @param {object} backup createBackup 결과 (내보내기와 같은 내용)
+ */
+function buildPreviewEmbeds(backup) {
+  const sizeKb = (Buffer.byteLength(JSON.stringify(backup, null, 2), 'utf-8') / 1024).toFixed(1);
+  const settingLines = Object.entries(SETTING_PREVIEW).map(
+    ([key, { label, type }]) => `${label} : ${previewSettingValue(type, backup.settings[key])}`
+  );
+
+  // 멤버 이력: 최근 입장 순
+  const history = Object.entries(backup.memberHistory);
+  const rejoined = history.filter(([, r]) => (r.joinCount || 1) > 1).length;
+  const nickCount = history.reduce((n, [, r]) => n + (r.nicknameHistory?.length || 0), 0);
+  const historyLines = history
+    .sort(([, a], [, b]) => (b.lastJoinedAt || 0) - (a.lastJoinedAt || 0))
+    .map(([userId, r]) => {
+      const joined = r.lastJoinedAt ? ` · 최근 입장 <t:${Math.floor(r.lastJoinedAt / 1000)}:d>` : '';
+      const nick = r.nicknameHistory?.length ? ` · 닉네임 변경 ${r.nicknameHistory.length}건` : '';
+      return `<@${userId}> 입장 ${r.joinCount || 1}회${joined}${nick}`;
+    });
+
+  // 활동 기록: 메시지 + 음성 시간 많은 순
+  const activity = Object.entries(backup.activity);
+  const totalMessages = activity.reduce((n, [, r]) => n + (r.messages || 0), 0);
+  const totalVoice = activity.reduce((n, [, r]) => n + (r.voiceSeconds || 0), 0);
+  const activityLines = activity
+    .sort(([, a], [, b]) => (b.messages || 0) + (b.voiceSeconds || 0) / 60 - ((a.messages || 0) + (a.voiceSeconds || 0) / 60))
+    .map(([userId, r]) => `<@${userId}> 메시지 ${(r.messages || 0).toLocaleString()}개 · 음성 ${formatDuration(r.voiceSeconds)} · 활동일 ${r.activeDays || 0}일`);
+
+  const summary = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .setTitle('🔍 백업 미리보기')
+    .setDescription(
+      `\`/백업 내보내기\` 를 실행하면 아래 내용이 파일로 저장됩니다. (이 미리보기는 파일을 만들지 않습니다)\n` +
+        `서버: **${backup.guildName}** · 형식 v${backup.version} · 예상 크기 ${sizeKb} KB`
+    )
+    .addFields(
+      { name: '⚙️ 설정', value: settingLines.join('\n') },
+      {
+        name: `👥 멤버 이력 (${history.length}명 · 재입장 ${rejoined}명 · 닉네임 변경 ${nickCount}건)`,
+        value: fitLines(historyLines, '기록 없음'),
+      }
+    );
+
+  const activityEmbed = new EmbedBuilder()
+    .setColor(0x5865F2)
+    .addFields({
+      name: `📊 활동 기록 (${activity.length}명 · 메시지 ${totalMessages.toLocaleString()}개 · 음성 ${formatDuration(totalVoice)})`,
+      value: fitLines(activityLines, '기록 없음'),
+    })
+    .setFooter({ text: '⚠️ 미리보기에도 멤버 ID와 이력이 표시되니 다른 사람에게 공유하지 마세요.' })
+    .setTimestamp();
+
+  return [summary, activityEmbed];
+}
 
 /** 로컬 백업 한 건을 사람이 읽기 좋은 한 줄로 표시 */
 function describeLocalBackup(info) {
@@ -63,6 +175,11 @@ export default {
       sub
         .setName('내보내기')
         .setDescription('현재 상태를 backups/ 폴더에 저장하고 JSON 파일로도 내려받습니다.')
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('미리보기')
+        .setDescription('내보내기 될 백업 내용(설정, 멤버 이력, 활동 기록)을 파일을 만들지 않고 미리 확인합니다.')
     )
     .addSubcommand(sub =>
       sub
@@ -154,6 +271,16 @@ export default {
       } catch (error) {
         console.error('[Backup] 백업 생성 실패:', error);
         return interaction.reply({ content: '❌ 백업 파일을 만드는 중 오류가 발생했습니다.', ephemeral: true });
+      }
+    }
+
+    // 1-1. 미리보기: 내보내기와 같은 내용을 만들되 파일 생성·backups/ 저장 없이 요약만 표시
+    if (subcommand === '미리보기') {
+      try {
+        return interaction.reply({ embeds: buildPreviewEmbeds(createBackup(guild)), ephemeral: true });
+      } catch (error) {
+        console.error('[Backup] 미리보기 실패:', error);
+        return interaction.reply({ content: '❌ 백업 미리보기를 만드는 중 오류가 발생했습니다.', ephemeral: true });
       }
     }
 

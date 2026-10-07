@@ -54,13 +54,11 @@ class ActivityManager {
     this.dirty = false;
 
     // 프로세스 종료 시 진행 중인 음성 세션을 정산하고 즉시 저장
+    // (SIGINT/SIGTERM 은 index.js 에서 종료 시 백업 후 process.exit 으로 종료 → 이 'exit' 처리가 실행됨)
     process.on('exit', () => {
       this.finalizeAllVoiceSessions();
       if (this.dirty) this.saveToFile();
     });
-    for (const signal of ['SIGINT', 'SIGTERM']) {
-      process.on(signal, () => process.exit(0));
-    }
   }
 
   loadFromFile() {

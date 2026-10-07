@@ -16,6 +16,7 @@ const FILE_NAME_PATTERN = /^backup-(\d{15,22})-(\d{8})-(\d{4}|\d{6})(?:-([a-z-]+
 /** 백업 종류 태그 → 표시 이름 */
 export const BACKUP_TAG_LABEL = Object.freeze({
   'before-restore': '복원 직전 자동 백업',
+  auto: '채널 자동 백업',
 });
 
 const stampFormatter = new Intl.DateTimeFormat('en-CA', {
