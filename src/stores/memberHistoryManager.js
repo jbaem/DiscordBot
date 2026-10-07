@@ -19,16 +19,18 @@ function sanitizeNicknameHistory(list) {
     .slice(0, MAX_NICKNAME_HISTORY);
 }
 
-/** 두 이력 배열을 합쳐 중복(같은 시각) 제거 후 정리 */
+/** 처음 입장 이름 정리 (문자열이 아니면 null, 디스코드 이름 최대 길이 32자) */
+function sanitizeName(value) {
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, 32) : null;
+}
+
+/** 두 이력 배열을 합쳐 중복(같은 시각) 제거 후 정리 (개수 제한은 중복을 지운 뒤에 적용) */
 function mergeNicknameHistory(a, b) {
-  const seen = new Set();
-  const merged = [];
-  for (const entry of sanitizeNicknameHistory([...(a || []), ...(b || [])])) {
-    if (seen.has(entry.at)) continue;
-    seen.add(entry.at);
-    merged.push(entry);
+  const merged = new Map();
+  for (const entry of [...sanitizeNicknameHistory(a), ...sanitizeNicknameHistory(b)]) {
+    if (!merged.has(entry.at)) merged.set(entry.at, entry);
   }
-  return merged.slice(0, MAX_NICKNAME_HISTORY);
+  return [...merged.values()].sort((x, y) => y.at - x.at).slice(0, MAX_NICKNAME_HISTORY);
 }
 
 /** 두 타임스탬프 중 유효한 값 기준으로 더 이른(작은) 값을 반환 */
@@ -58,9 +60,10 @@ class MemberHistoryManager {
 
   /**
    * 유저 입장 시 카운트 증가 및 기록
+   * @param {string} [displayName] 입장 당시 표시 이름 (처음 입장일 때만 firstJoinName 으로 저장)
    * @returns {number} 총 입장 횟수
    */
-  recordJoin(guildId, userId) {
+  recordJoin(guildId, userId, displayName) {
     if (!this.cache[guildId]) {
       this.cache[guildId] = {};
     }
@@ -71,6 +74,7 @@ class MemberHistoryManager {
         firstJoinedAt: Date.now(),
         lastJoinedAt: Date.now(),
         lastLeftAt: null,
+        firstJoinName: sanitizeName(displayName),
       };
     } else {
       this.cache[guildId][userId].joinCount = (this.cache[guildId][userId].joinCount || 1) + 1;
@@ -157,6 +161,7 @@ class MemberHistoryManager {
           firstJoinedAt: earlierTimestamp(record.firstJoinedAt, null),
           lastJoinedAt: laterTimestamp(record.lastJoinedAt, null),
           lastLeftAt: laterTimestamp(record.lastLeftAt, null),
+          firstJoinName: sanitizeName(record.firstJoinName),
           nicknameHistory: sanitizeNicknameHistory(record.nicknameHistory),
         };
       } else {
@@ -165,6 +170,8 @@ class MemberHistoryManager {
           firstJoinedAt: earlierTimestamp(existing.firstJoinedAt, record.firstJoinedAt),
           lastJoinedAt: laterTimestamp(existing.lastJoinedAt, record.lastJoinedAt),
           lastLeftAt: laterTimestamp(existing.lastLeftAt, record.lastLeftAt),
+          // 처음 입장 이름은 이미 있으면 유지, 없으면 백업 값으로 채움
+          firstJoinName: sanitizeName(existing.firstJoinName) ?? sanitizeName(record.firstJoinName),
           nicknameHistory: mergeNicknameHistory(existing.nicknameHistory, record.nicknameHistory),
         };
       }
