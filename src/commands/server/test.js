@@ -64,7 +64,6 @@ export default {
         guild,
         settings,
         joinCount: memberHistoryManager.getJoinCount(guild.id, interaction.user.id),
-        invite: { type: 'test', inviterId: interaction.user.id }, // 입장 알림의 초대 칸 예시 (퇴장 알림은 사용 안 함)
         test: true,
         testerTag: interaction.user.tag,
       });

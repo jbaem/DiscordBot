@@ -14,7 +14,6 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMessageReactions, // 이모지 반응 역할
-    GatewayIntentBits.GuildInvites, // 초대 링크 생성 감지 (입장 알림의 초대자 확인)
   ],
   // 봇 재시작 이전에 게시된 패널 메시지(캐시에 없는 메시지)의 반응도 수신하기 위한 Partials
   partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.User, Partials.GuildMember],
