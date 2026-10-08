@@ -1,5 +1,6 @@
 import { Events } from 'discord.js';
 import { activityManager } from '../../stores/activityManager.js';
+import { pointsManager } from '../../stores/pointsManager.js';
 
 /**
  * 메시지 작성 활동 기록 (메시지 수, 활동일, 마지막 활동)
@@ -15,6 +16,8 @@ export default {
 
     try {
       activityManager.recordMessage(message.guild.id, message.author.id, message.createdTimestamp);
+      // 게임 포인트 적립 (게임랜드에 등록한 멤버만, 쿨다운·하루 한도 안에서)
+      pointsManager.awardMessage(message.guild.id, message.author.id, message.createdTimestamp);
     } catch (error) {
       console.error('[Activity] 메시지 활동 기록 오류:', error);
     }

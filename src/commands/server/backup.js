@@ -18,6 +18,7 @@ const SETTING_PREVIEW = {
   joinToCreateChannelId: { label: '🔊 음성방 생성 채널', type: 'channel' },
   rolePanelChannelId: { label: '🎭 역할 패널 채널', type: 'channel' },
   backupChannelId: { label: '🗄️ 자동 백업 채널', type: 'channel' },
+  gameChannelId: { label: '🎮 게임랜드 채널', type: 'channel' },
   autoRoleId: { label: '👤 자동 역할', type: 'role' },
   welcomeMessage: { label: '👋 입장 문구', type: 'text' },
   leaveMessage: { label: '🚪 퇴장 문구', type: 'text' },
@@ -116,6 +117,14 @@ function buildPreviewEmbeds(backup) {
     .sort(([, a], [, b]) => (b.messages || 0) + (b.voiceSeconds || 0) / 60 - ((a.messages || 0) + (a.voiceSeconds || 0) / 60))
     .map(([userId, r]) => `<@${userId}> 메시지 ${(r.messages || 0).toLocaleString()}개 · 음성 ${formatDuration(r.voiceSeconds)} · 활동일 ${r.activeDays || 0}일`);
 
+  // 게임 포인트: 잔액 높은 순
+  const points = Object.entries(backup.points || {});
+  const totalPoints = points.reduce((n, [, r]) => n + (r.balance || 0), 0);
+  const registered = points.filter(([, r]) => r.registeredAt).length;
+  const pointLines = points
+    .sort(([, a], [, b]) => (b.balance || 0) - (a.balance || 0))
+    .map(([userId, r]) => `<@${userId}> ${(r.balance || 0).toLocaleString()}P · ${r.wins || 0}승 ${r.losses || 0}패 ${r.draws || 0}무${r.registeredAt ? '' : ' (미등록)'}`);
+
   const summary = new EmbedBuilder()
     .setColor(0x5865F2)
     .setTitle('🔍 백업 미리보기')
@@ -125,10 +134,10 @@ function buildPreviewEmbeds(backup) {
     )
     .addFields(
       { name: '⚙️ 설정', value: settingLines.join('\n') },
-      // 메시지 전체 6000자 제한 안에 들도록 멤버 이력은 최대 3칸, 활동 기록은 1칸
+      // 메시지 전체 6000자 제한 안에 들도록 멤버 이력은 최대 2칸, 활동 기록·게임 포인트는 1칸씩
       ...toFields(
         `👥 멤버 이력 (${history.length}명 · 재입장 ${rejoined}명 · 닉네임 변경 ${nickCount}건)`,
-        chunkLines(historyLines, '기록 없음', { maxFields: 3 })
+        chunkLines(historyLines, '기록 없음', { maxFields: 2 })
       )
     );
 
@@ -138,6 +147,10 @@ function buildPreviewEmbeds(backup) {
       ...toFields(
         `📊 활동 기록 (${activity.length}명 · 메시지 ${totalMessages.toLocaleString()}개 · 음성 ${formatDuration(totalVoice)})`,
         chunkLines(activityLines, '기록 없음')
+      ),
+      ...toFields(
+        `🎮 게임 포인트 (등록 ${registered}명 · 합계 ${totalPoints.toLocaleString()}P)`,
+        chunkLines(pointLines, '기록 없음')
       )
     )
     .setFooter({ text: '⚠️ 미리보기에도 멤버 ID와 이력이 표시되니 다른 사람에게 공유하지 마세요.' })
@@ -194,7 +207,7 @@ export default {
   tier: CommandTier.ADMIN,
   data: new SlashCommandBuilder()
     .setName('백업')
-    .setDescription('서버 설정과 멤버 이력, 활동 기록을 백업하거나 복원합니다. (봇 서버의 backups/ 폴더에 자동 저장)')
+    .setDescription('서버 설정과 멤버 이력, 활동 기록, 게임 포인트를 백업하거나 복원합니다. (봇 서버의 backups/ 폴더에 자동 저장)')
     .setDefaultMemberPermissions(ADMIN_DEFAULT_PERMISSION)
     .addSubcommand(sub =>
       sub
@@ -204,7 +217,7 @@ export default {
     .addSubcommand(sub =>
       sub
         .setName('미리보기')
-        .setDescription('내보내기 될 백업 내용(설정, 멤버 이력, 활동 기록)을 파일을 만들지 않고 미리 확인합니다.')
+        .setDescription('내보내기 될 백업 내용(설정, 멤버 이력, 활동 기록, 게임 포인트)을 파일을 만들지 않고 미리 확인합니다.')
     )
     .addSubcommand(sub =>
       sub
@@ -351,6 +364,7 @@ export default {
             { name: '⚙️ 복원된 설정', value: result.appliedSettings.length ? result.appliedSettings.map(k => `\`${k}\``).join(', ') : '없음' },
             { name: '👥 멤버 이력', value: `${result.history.imported.toLocaleString()}명 반영 (${modeText}) · 현재 총 ${result.history.total.toLocaleString()}명`, inline: true },
             { name: '📊 활동 기록', value: `${result.activity.imported.toLocaleString()}명 반영 (${modeText}) · 현재 총 ${result.activity.total.toLocaleString()}명`, inline: true },
+            { name: '🎮 게임 포인트', value: `${result.points.imported.toLocaleString()}명 반영 (${modeText}) · 현재 총 ${result.points.total.toLocaleString()}명`, inline: true },
             { name: '🕒 백업 생성 시각', value: Number.isFinite(exportedMs) ? `<t:${Math.floor(exportedMs / 1000)}:f>` : '알 수 없음', inline: true },
             {
               name: '↩️ 되돌리기',

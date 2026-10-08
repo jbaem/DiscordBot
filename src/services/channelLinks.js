@@ -58,6 +58,13 @@ export const CHANNEL_LINKS = {
       return removed ? `🧹 게시되어 있던 역할 패널 ${removed}개를 삭제했습니다.` : '';
     },
   },
+  게임랜드: {
+    settingKey: 'gameChannelId',
+    label: '🎮 게임랜드',
+    channelType: ChannelType.GuildText,
+    requiredPermissions: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks],
+    doneText: channel => `이제 ${channel} 채널에서 \`/게임 등록\`, \`/게임 가위바위보\` 를 할 수 있습니다. (다른 채널에서는 게임 불가)`,
+  },
   백업: {
     settingKey: 'backupChannelId',
     label: '🗄️ 자동 백업',
