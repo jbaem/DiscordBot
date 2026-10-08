@@ -8,14 +8,11 @@ const store = new JsonStore('points.json', 'Points');
 // ─────────────────────────────────────────────────────────────
 export const POINT_RULES = Object.freeze({
   /** /게임 등록 시 한 번 지급 */
-  START_POINTS: 1000,
-  /** 메시지 활동 적립 (쿨다운마다 1번) */
-  MESSAGE_POINTS: 5,
-  MESSAGE_COOLDOWN_MS: 60 * 1000,
-  /** 음성 채널 1분당 적립 */
-  VOICE_POINTS_PER_MINUTE: 1,
-  /** 활동으로 하루(한국 시간)에 받을 수 있는 최대 포인트 */
-  DAILY_ACTIVITY_CAP: 300,
+  START_POINTS: 10000,
+  /** 하루(한국 시간)의 첫 메시지 보너스 */
+  DAILY_FIRST_MESSAGE_POINTS: 500,
+  /** 음성 채널 1시간당 적립 (머문 시간에 비례, 1시간 미만도 적립) */
+  VOICE_POINTS_PER_HOUR: 1000,
 });
 
 /** 파일 저장 디바운스 (ms) — 메시지 적립마다 파일을 쓰지 않고 잠시 모아서 저장 */
@@ -29,8 +26,8 @@ function createRecord() {
     wins: 0,
     losses: 0,
     draws: 0,
-    lastMessagePointAt: null,
-    activityDay: null, // 활동 적립 일일 한도 계산용 (YYYY-MM-DD)
+    dailyMessageDay: null, // 첫 메시지 보너스를 받은 날 (YYYY-MM-DD)
+    activityDay: null, // 오늘 활동 적립량 표시용 (YYYY-MM-DD)
     activityToday: 0,
   };
 }
@@ -105,8 +102,8 @@ class PointsManager {
   }
 
   /**
-   * 활동 적립 (등록한 멤버만, 하루 한도 안에서)
-   * @returns {number} 실제 적립한 포인트
+   * 활동 적립 (등록한 멤버만)
+   * @returns {number} 적립한 포인트
    */
   addActivityPoints(guildId, userId, amount, timestamp = Date.now()) {
     if (amount <= 0 || !this.isRegistered(guildId, userId)) return 0;
@@ -116,29 +113,42 @@ class PointsManager {
       record.activityDay = day;
       record.activityToday = 0;
     }
-    const given = Math.min(amount, POINT_RULES.DAILY_ACTIVITY_CAP - record.activityToday);
-    if (given <= 0) return 0;
-    record.activityToday += given;
-    record.balance += given;
+    record.activityToday += amount;
+    record.balance += amount;
     record.updatedAt = timestamp;
     this.scheduleSave();
-    return given;
+    return amount;
   }
 
-  /** 메시지 활동 적립 (쿨다운 안의 메시지는 적립하지 않음) */
+  /** 하루의 첫 메시지 보너스 (한국 시간 기준 하루 1번) */
   awardMessage(guildId, userId, timestamp = Date.now()) {
     if (!this.isRegistered(guildId, userId)) return 0;
     const record = this.cache[guildId][userId];
-    if (record.lastMessagePointAt && timestamp - record.lastMessagePointAt < POINT_RULES.MESSAGE_COOLDOWN_MS) return 0;
-    const given = this.addActivityPoints(guildId, userId, POINT_RULES.MESSAGE_POINTS, timestamp);
-    if (given > 0) record.lastMessagePointAt = timestamp;
-    return given;
+    const day = toDayKey(timestamp);
+    if (record.dailyMessageDay === day) return 0;
+    record.dailyMessageDay = day;
+    return this.addActivityPoints(guildId, userId, POINT_RULES.DAILY_FIRST_MESSAGE_POINTS, timestamp);
   }
 
-  /** 음성 채널 활동 적립 (머문 시간 1분당) */
+  /** 음성 채널 활동 적립 (머문 시간에 비례, 1시간당 VOICE_POINTS_PER_HOUR) */
   awardVoice(guildId, userId, seconds, timestamp = Date.now()) {
-    const minutes = Math.floor((seconds || 0) / 60);
-    return this.addActivityPoints(guildId, userId, minutes * POINT_RULES.VOICE_POINTS_PER_MINUTE, timestamp);
+    const amount = Math.floor(((seconds || 0) * POINT_RULES.VOICE_POINTS_PER_HOUR) / 3600);
+    return this.addActivityPoints(guildId, userId, amount, timestamp);
+  }
+
+  /**
+   * 멤버끼리 포인트 선물 (보내는 사람 잔액 안에서)
+   * @returns {{ ok: true, from: number, to: number } | { ok: false, balance: number }} 보낸 뒤 두 사람의 잔액
+   */
+  transfer(guildId, fromId, toId, amount, timestamp = Date.now()) {
+    const from = this.getOrCreate(guildId, fromId);
+    if (from.balance < amount) return { ok: false, balance: from.balance };
+    const to = this.getOrCreate(guildId, toId);
+    from.balance -= amount;
+    to.balance += amount;
+    from.updatedAt = to.updatedAt = timestamp;
+    this.saveToFile();
+    return { ok: true, from: from.balance, to: to.balance };
   }
 
   /**
@@ -209,7 +219,7 @@ class PointsManager {
         wins: toNonNegativeInt(record.wins),
         losses: toNonNegativeInt(record.losses),
         draws: toNonNegativeInt(record.draws),
-        lastMessagePointAt: toTimestampOrNull(record.lastMessagePointAt),
+        dailyMessageDay: typeof record.dailyMessageDay === 'string' ? record.dailyMessageDay : null,
         activityDay: typeof record.activityDay === 'string' ? record.activityDay : null,
         activityToday: toNonNegativeInt(record.activityToday),
       };

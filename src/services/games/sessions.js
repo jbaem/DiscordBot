@@ -18,6 +18,11 @@ export function lockPlayers(guildId, userIds) {
   return null;
 }
 
+/** 게임 중인지 (게임 중에는 포인트 선물 불가 — 질 때 낼 포인트를 미리 빼돌리지 못하게) */
+export function isPlaying(guildId, userId) {
+  return busy.has(key(guildId, userId));
+}
+
 export function releasePlayers(guildId, userIds) {
   for (const userId of userIds) busy.delete(key(guildId, userId));
 }

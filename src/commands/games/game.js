@@ -4,9 +4,13 @@ import { settingsManager } from '../../stores/settingsManager.js';
 import { pointsManager, POINT_RULES } from '../../stores/pointsManager.js';
 import { toDayKey } from '../../stores/activityManager.js';
 import { playSolo, playDuel } from '../../services/games/rockPaperScissors.js';
+import { isPlaying } from '../../services/games/sessions.js';
 
-/** 최소 베팅 포인트 */
-export const MIN_BET = 10;
+/** 베팅 범위 */
+export const MIN_BET = 1;
+export const MAX_BET = 100_000;
+/** 한 번에 선물할 수 있는 최대 포인트 */
+const MAX_GIFT = 1_000_000_000;
 /** 순위에 보여 줄 인원 */
 const RANKING_SIZE = 10;
 
@@ -34,9 +38,23 @@ export default {
         .setName('가위바위보')
         .setDescription('가위바위보를 합니다. 상대를 비우면 봇과 1인용, 지정하면 그 멤버와 대결합니다.')
         .addIntegerOption(opt =>
-          opt.setName('베팅').setDescription(`걸 포인트 (최소 ${MIN_BET}P)`).setRequired(true).setMinValue(MIN_BET)
+          opt
+            .setName('베팅')
+            .setDescription(`걸 포인트 (${MIN_BET}~${MAX_BET.toLocaleString()}P)`)
+            .setRequired(true)
+            .setMinValue(MIN_BET)
+            .setMaxValue(MAX_BET)
         )
         .addUserOption(opt => opt.setName('상대').setDescription('대결할 멤버 (비우면 봇과 대결)'))
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('선물')
+        .setDescription('다른 멤버에게 내 포인트를 보냅니다.')
+        .addUserOption(opt => opt.setName('유저').setDescription('받을 멤버').setRequired(true))
+        .addIntegerOption(opt =>
+          opt.setName('금액').setDescription('보낼 포인트').setRequired(true).setMinValue(1).setMaxValue(MAX_GIFT)
+        )
     )
     .addSubcommand(sub =>
       sub
@@ -64,13 +82,15 @@ export default {
       }
       const rank = pointsManager.ranking(guild.id).findIndex(x => x.userId === target.id) + 1;
       const today = r.activityDay === toDayKey() ? r.activityToday : 0;
+      const bonus = r.dailyMessageDay === toDayKey() ? '받음' : '아직 (오늘 첫 메시지를 보내면 지급)';
       const embed = new EmbedBuilder()
         .setColor(0x5865F2)
         .setTitle(`🎮 ${target.username} 님의 포인트`)
         .addFields(
           { name: '💰 잔액', value: `**${p(r.balance)}**${rank ? ` · ${rank}위` : ''}`, inline: true },
           { name: '⚔️ 전적', value: record(r), inline: true },
-          { name: '📈 오늘 활동 적립', value: `${p(today)} / ${p(POINT_RULES.DAILY_ACTIVITY_CAP)}`, inline: true }
+          { name: '📈 오늘 활동 적립', value: p(today), inline: true },
+          { name: '💬 오늘 첫 메시지 보너스', value: bonus, inline: false }
         );
       if (!r.registeredAt) embed.setFooter({ text: '아직 /게임 등록 을 하지 않아 활동 적립과 게임은 등록 후부터 가능합니다.' });
       return interaction.reply({ embeds: [embed], ephemeral: true });
@@ -107,11 +127,41 @@ export default {
             .setTitle('🎮 게임랜드 등록 완료!')
             .setDescription(
               `${user} 님, 환영합니다! 시작 포인트 **${p(POINT_RULES.START_POINTS)}** 를 받았습니다. (잔액 ${p(balance)})\n\n` +
-                `• 메시지 ${p(POINT_RULES.MESSAGE_POINTS)} (${POINT_RULES.MESSAGE_COOLDOWN_MS / 60000}분에 1번), ` +
-                `음성 채널 1분당 ${p(POINT_RULES.VOICE_POINTS_PER_MINUTE)} 자동 적립 (하루 최대 ${p(POINT_RULES.DAILY_ACTIVITY_CAP)})\n` +
-                '• `/게임 가위바위보 베팅:<포인트>` 로 봇과, `상대:@멤버` 를 지정하면 멤버와 대결'
+                `• 하루의 첫 메시지 ${p(POINT_RULES.DAILY_FIRST_MESSAGE_POINTS)}, 음성 채널 1시간당 ${p(POINT_RULES.VOICE_POINTS_PER_HOUR)} 자동 적립\n` +
+                `• \`/게임 가위바위보 베팅:<포인트>\` 로 봇과, \`상대:@멤버\` 를 지정하면 멤버와 대결 (베팅 최대 ${p(MAX_BET)})\n` +
+                '• `/게임 선물` 로 다른 멤버에게 포인트를 보낼 수 있습니다.'
             ),
         ],
+      });
+    }
+
+    if (subcommand === '선물') {
+      const target = interaction.options.getUser('유저');
+      const amount = interaction.options.getInteger('금액');
+      if (!pointsManager.isRegistered(guild.id, user.id)) {
+        return interaction.reply({ content: '🎮 먼저 `/게임 등록` 으로 게임랜드에 등록해 주세요.', ephemeral: true });
+      }
+      if (target.id === user.id) return interaction.reply({ content: '🙅 자기 자신에게는 보낼 수 없습니다.', ephemeral: true });
+      if (target.bot) return interaction.reply({ content: '🙅 봇에게는 보낼 수 없습니다.', ephemeral: true });
+      if (!pointsManager.isRegistered(guild.id, target.id)) {
+        return interaction.reply({ content: `🎮 ${target} 님은 아직 게임랜드에 등록하지 않았습니다.`, ephemeral: true });
+      }
+      if (isPlaying(guild.id, user.id)) {
+        return interaction.reply({ content: '⏳ 게임 중에는 포인트를 보낼 수 없습니다. 게임이 끝난 뒤 다시 시도해 주세요.', ephemeral: true });
+      }
+      const result = pointsManager.transfer(guild.id, user.id, target.id, amount);
+      if (!result.ok) {
+        return interaction.reply({ content: `💸 포인트가 부족합니다. (잔액 ${p(result.balance)}, 보낼 금액 ${p(amount)})`, ephemeral: true });
+      }
+      console.log(`[Points] ${guild.name}: ${user.tag} → ${target.tag} 선물 ${amount}`);
+      return interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xEB459E)
+            .setTitle('🎁 포인트 선물')
+            .setDescription(`${user} 님이 ${target} 님에게 **${p(amount)}** 를 보냈습니다!\n${user} 잔액 ${p(result.from)} · ${target} 잔액 ${p(result.to)}`),
+        ],
+        allowedMentions: { users: [target.id] },
       });
     }
 
