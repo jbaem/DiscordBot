@@ -3,6 +3,7 @@ import { config, describeToken } from './config.js';
 import { loadCommands } from './core/commandHandler.js';
 import { loadEvents } from './core/eventHandler.js';
 import { activityManager } from './stores/activityManager.js';
+import { pointsManager } from './stores/pointsManager.js';
 // 로그인 전에 불러와야 디스크에 원래 있던 데이터를 기준으로 시작 시 복원 여부를 판단할 수 있음
 import { stopAutoBackup } from './services/autoBackup.js';
 
@@ -85,8 +86,10 @@ async function shutdown(signal) {
   }, SHUTDOWN_TIMEOUT_MS).unref();
 
   try {
-    // 진행 중인 음성 시간을 정산해 마지막 백업에 포함
-    activityManager.finalizeAllVoiceSessions();
+    // 진행 중인 음성 시간을 정산(게임 포인트 적립 포함)해 마지막 백업에 포함
+    for (const { guildId, userId, seconds } of activityManager.finalizeAllVoiceSessions()) {
+      pointsManager.awardVoice(guildId, userId, seconds);
+    }
     await stopAutoBackup();
   } catch (error) {
     console.error('[Shutdown] 종료 시 백업 오류:', error);

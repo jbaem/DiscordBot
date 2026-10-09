@@ -9,6 +9,7 @@ import { DATA_DIR } from '../stores/jsonStore.js';
 import { settingsManager, DISABLED } from '../stores/settingsManager.js';
 import { memberHistoryManager } from '../stores/memberHistoryManager.js';
 import { activityManager } from '../stores/activityManager.js';
+import { pointsManager } from '../stores/pointsManager.js';
 
 /**
  * 디스코드 채널 자동 백업
@@ -38,7 +39,7 @@ const REQUIRED_PERMISSIONS = [
 ];
 
 /** 백업 대상 데이터 파일 (data/ 안) */
-const DATA_FILES = ['guildSettings.json', 'memberHistory.json', 'activity.json'];
+const DATA_FILES = ['guildSettings.json', 'memberHistory.json', 'activity.json', 'points.json'];
 
 /**
  * 프로세스 시작 시점(로그인 전)의 디스크 데이터 상태
@@ -48,7 +49,9 @@ const DATA_FILES = ['guildSettings.json', 'memberHistory.json', 'activity.json']
  */
 const bootState = {
   guildIds: new Set(
-    [settingsManager.cache, memberHistoryManager.cache, activityManager.cache].flatMap(cache => Object.keys(cache || {}))
+    [settingsManager.cache, memberHistoryManager.cache, activityManager.cache, pointsManager.cache].flatMap(cache =>
+      Object.keys(cache || {})
+    )
   ),
   savedAt: Math.max(
     0,
@@ -72,15 +75,18 @@ function stateOf(guildId) {
   return states.get(guildId);
 }
 
-/** 백업 내용 비교용 해시 (내보낸 시각·서버 이름 제외) */
+/** 백업 내용 비교용 해시 (내보낸 시각·서버 이름·버전 제외) */
 function contentHash(backup) {
-  const { settings, memberHistory, activity } = backup;
-  return createHash('sha256').update(JSON.stringify({ settings, memberHistory, activity })).digest('hex');
+  const { settings, memberHistory, activity, points } = backup;
+  return createHash('sha256').update(JSON.stringify({ settings, memberHistory, activity, points })).digest('hex');
 }
 
 /** 백업 요약 문구 */
 function summarize(backup) {
-  return `멤버 이력 ${Object.keys(backup.memberHistory).length}명 · 활동 기록 ${Object.keys(backup.activity).length}명`;
+  return (
+    `멤버 이력 ${Object.keys(backup.memberHistory).length}명 · 활동 기록 ${Object.keys(backup.activity).length}명 · ` +
+    `게임 포인트 ${Object.keys(backup.points || {}).length}명`
+  );
 }
 
 /**

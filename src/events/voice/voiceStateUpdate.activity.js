@@ -1,5 +1,6 @@
 import { Events } from 'discord.js';
 import { activityManager } from '../../stores/activityManager.js';
+import { pointsManager } from '../../stores/pointsManager.js';
 
 /**
  * 음성 채널 체류 시간 추적 (voiceStateUpdate.js 의 임시 음성 채널 로직과 분리)
@@ -29,7 +30,9 @@ export default {
     try {
       // 기존 채널에서 나감 (또는 다른 채널로 이동) → 세션 정산
       if (oldChannelId && activityManager.hasVoiceSession(guild.id, member.id)) {
-        activityManager.endVoiceSession(guild.id, member.id, now);
+        const { seconds } = activityManager.endVoiceSession(guild.id, member.id, now);
+        // 게임 포인트 적립 (게임랜드에 등록한 멤버만, 1분당, 하루 한도 안에서)
+        pointsManager.awardVoice(guild.id, member.id, seconds, now);
       }
 
       // 새 채널에 들어감 (AFK 채널 제외) → 세션 시작

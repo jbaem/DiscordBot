@@ -165,12 +165,15 @@ class ActivityManager {
     return this.voiceSessions.has(`${guildId}:${userId}`);
   }
 
-  /** 모든 진행 중 음성 세션 정산 (종료 시 사용) */
+  /**
+   * 모든 진행 중 음성 세션 정산 (종료 시 사용)
+   * @returns {Array<{ guildId: string, userId: string, seconds: number }>} 정산한 세션
+   */
   finalizeAllVoiceSessions(timestamp = Date.now()) {
-    for (const key of Array.from(this.voiceSessions.keys())) {
+    return Array.from(this.voiceSessions.keys()).map(key => {
       const [guildId, userId] = key.split(':');
-      this.endVoiceSession(guildId, userId, timestamp);
-    }
+      return { guildId, userId, ...this.endVoiceSession(guildId, userId, timestamp) };
+    });
   }
 
   /**

@@ -2,6 +2,7 @@ import { SlashCommandBuilder, EmbedBuilder, escapeMarkdown } from 'discord.js';
 import { CommandTier, isAdmin } from '../../core/permissions.js';
 import { memberHistoryManager } from '../../stores/memberHistoryManager.js';
 import { activityManager } from '../../stores/activityManager.js';
+import { pointsManager } from '../../stores/pointsManager.js';
 import { formatDate, formatDuration } from '../../utils/format.js';
 
 export default {
@@ -79,6 +80,12 @@ export default {
         `• 음성 채널: ${formatDuration(activity.voiceSeconds)}`,
         `• 마지막 활동: ${activity.lastActiveAt ? `<t:${Math.floor(activity.lastActiveAt / 1000)}:R>` : '기록 없음'}`,
       ];
+      const points = pointsManager.get(guildId, member.id);
+      if (points.registeredAt) {
+        activityLines.push(
+          `• 게임 포인트: **${points.balance.toLocaleString()}P** (${points.wins}승 ${points.losses}패 ${points.draws}무)`
+        );
+      }
 
       const embed = new EmbedBuilder()
         .setColor(member.displayHexColor && member.displayHexColor !== '#000000' ? member.displayHexColor : 0x5865F2)
