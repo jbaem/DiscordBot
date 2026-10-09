@@ -1,6 +1,10 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, EmbedBuilder } from 'discord.js';
 import { pointsManager } from '../../stores/pointsManager.js';
 import { lockPlayers, releasePlayers } from './sessions.js';
+import { PICK_TIMEOUT_MS, AGAIN_TIMEOUT_MS, COLOR, p, signed, againButtons, oneLine, rejectOthers } from './common.js';
+import { playSoloGame } from './soloSession.js';
+
+export { PICK_TIMEOUT_MS, AGAIN_TIMEOUT_MS };
 
 /** 낼 수 있는 손 */
 export const HANDS = Object.freeze({
@@ -23,17 +27,9 @@ export function streakBonusRate(streak) {
   return streak > last && streak % 5 === 0 ? STREAK_BONUS_RATES[last] : 0;
 }
 
-/** 손을 고를 수 있는 시간 */
-export const PICK_TIMEOUT_MS = 30 * 1000;
 /** 대결 신청을 수락할 수 있는 시간 */
 export const ACCEPT_TIMEOUT_MS = 60 * 1000;
-/** 결과 뒤 "한 판 더 / 그만하기" 를 고를 수 있는 시간 */
-export const AGAIN_TIMEOUT_MS = 30 * 1000;
 
-const COLOR = { playing: 0x5865F2, win: 0x57F287, lose: 0xED4245, draw: 0xFEE75C, cancel: 0x99AAB5 };
-
-const p = n => `${n.toLocaleString()}P`;
-const signed = n => (n > 0 ? `+${p(n)}` : n < 0 ? `-${p(-n)}` : '±0P');
 const handText = hand => `${HANDS[hand].emoji} ${HANDS[hand].name}`;
 
 /** 승패 판정: 1 = a 승, -1 = b 승, 0 = 무승부 */
@@ -55,168 +51,36 @@ function handButtons(prefix) {
   );
 }
 
-/** 결과 뒤 이어 할지 묻는 버튼 (🔁 한 판 더 / 🛑 그만하기) */
-function againButtons(prefix, againLabel) {
-  return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`${prefix}:again`).setLabel(againLabel).setEmoji('🔁').setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId(`${prefix}:stop`).setLabel('그만하기').setEmoji('🛑').setStyle(ButtonStyle.Secondary)
-  );
-}
-
 /** 서버 표시 이름 (한 줄 요약·임베드 꼬리말은 멘션 대신 이름) */
 const displayName = (guild, id, fallback = '참가자') => guild.members.cache.get(id)?.displayName ?? fallback;
 const nameOf = i => i.member?.displayName ?? i.user.username;
 
-/** 게임이 끝나면 큰 임베드 대신 남기는 한 줄 (멘션 알림 없음) */
-const oneLine = content => ({ content, embeds: [], components: [], allowedMentions: { parse: [] } });
-
-/** 버튼을 누른 사람이 이 게임 참가자가 아니면 본인에게만 안내 */
-function rejectOthers(i) {
-  return i.reply({ content: '🙅 이 게임의 참가자만 누를 수 있습니다.', ephemeral: true }).catch(() => {});
-}
-
 // ─────────────────────────────────────────────────────────────
-// 1인용 (봇 상대) — 진행은 하는 사람에게만 보이고, 끝나면 채널에 결과 한 줄만 공개
+// 1인용 (봇 상대) — 진행 방식은 soloSession.js (본인에게만, 🔁/🛑, 끝나면 한 줄 요약)
 // ─────────────────────────────────────────────────────────────
+
+/** 봇과의 가위바위보 — 이기면 +베팅, 지면 -베팅, 비기면 그대로, 연승 보너스 */
+export const RPS_SOLO = Object.freeze({
+  key: 'rps',
+  name: '가위바위보 vs 연두봇',
+  title: '✊✌️✋ 가위바위보 vs 연두봇',
+  prompt: '낼 손을 골라 주세요!',
+  rules: bet => `이기면 +${p(bet)}, 지면 -${p(bet)}, 비기면 그대로 (연승 보너스 있음)`,
+  choices: Object.entries(HANDS).map(([id, h]) => ({ id, label: h.name, emoji: h.emoji })),
+  play(mine, bet) {
+    const botHand = randomHand();
+    const result = judge(mine, botHand);
+    return { delta: result * bet, detail: `${handText(mine)}  vs  ${handText(botHand)} 연두봇` };
+  },
+  streakBonusRate,
+});
 
 /**
- * 1인용: 봇과 가위바위보 — 이기면 베팅만큼 얻고, 지면 잃고, 비기면 그대로
- * 결과 뒤 🔁 한 판 더(같은 베팅) / 🛑 그만하기
- * 끝나면 본인 메시지는 한 줄 요약(잔액 포함)으로 바꾸고, 채널에는 결과 한 줄(잔액 제외)을 공개
  * @param {import('discord.js').ChatInputCommandInteraction} interaction
  * @param {number} bet
  */
-export async function playSolo(interaction, bet) {
-  const { guild, user } = interaction;
-  if (lockPlayers(guild.id, [user.id])) {
-    return interaction.reply({ content: '⏳ 이미 진행 중인 게임이 있습니다. 끝난 뒤 다시 시도해 주세요.', ephemeral: true });
-  }
-  const ctx = {
-    guild, user, bet, prefix: `rps:${interaction.id}`, round: 1,
-    channel: interaction.channel,
-    name: interaction.member?.displayName ?? user.username,
-    stats: { wins: 0, losses: 0, draws: 0, net: 0, bonus: 0, bestStreak: 0 },
-    // 나만 보이는 메시지는 채널에서 직접 수정할 수 없어 가장 최근 상호작용으로 수정 (토큰 15분 유효)
-    last: interaction,
-  };
-  await interaction.reply({ ...soloPickPayload(ctx), ephemeral: true });
-  const message = await interaction.fetchReply();
-  runSoloRound(message, ctx);
-}
-
-/** 1인용: 손 고르기 화면 */
-function soloPickPayload({ user, bet, prefix, round }) {
-  const embed = new EmbedBuilder()
-    .setColor(COLOR.playing)
-    .setTitle(`✊✌️✋ 가위바위보 vs 연두봇${round > 1 ? ` · ${round}판째` : ''}`)
-    .setDescription(`${user} 님, 낼 손을 골라 주세요! (${PICK_TIMEOUT_MS / 1000}초)\n베팅 **${p(bet)}** · 이기면 +${p(bet)}, 지면 -${p(bet)}, 비기면 그대로`);
-  return { content: '', embeds: [embed], components: [handButtons(prefix)] };
-}
-
-const playedRounds = stats => stats.wins + stats.losses + stats.draws;
-
-/** 1인용: 판 수·승패·포인트 변화 한 줄 */
-function soloResultText({ stats }) {
-  return (
-    `${playedRounds(stats)}판 ${stats.wins}승 ${stats.losses}패 ${stats.draws}무 · ` +
-    `${signed(stats.net)}${stats.bonus ? ` (연승 보너스 +${p(stats.bonus)} 포함)` : ''}` +
-    `${stats.bestStreak >= 2 ? ` · 🔥 최고 ${stats.bestStreak}연승` : ''}`
-  );
-}
-
-/**
- * 1인용 끝: 본인 메시지는 한 줄 요약(잔액 포함)으로, 채널에는 결과 한 줄 공개 (한 판도 안 했으면 공개 안 함)
- * @param {import('discord.js').ButtonInteraction} [i] 그만하기를 누른 상호작용 (시간 초과면 없음)
- */
-async function endSolo(ctx, reason, i) {
-  const { guild, user, stats } = ctx;
-  const played = playedRounds(stats);
-  const mine =
-    played === 0
-      ? `🎮 가위바위보 vs 연두봇 · ${reason} (포인트 변화 없음)`
-      : `🎮 가위바위보 vs 연두봇 · ${soloResultText(ctx)} · 잔액 ${p(pointsManager.get(guild.id, user.id).balance)} · ${reason}`;
-  if (i) await i.update(oneLine(mine)).catch(() => {});
-  else await ctx.last.editReply(oneLine(mine)).catch(() => {});
-  if (played > 0) {
-    await ctx.channel?.send(oneLine(`🎮 ${ctx.name} · 가위바위보 vs 연두봇 ${soloResultText(ctx)}`)).catch(error =>
-      console.warn('[Game] 1인용 결과 공개 실패:', error.message)
-    );
-  }
-}
-
-/** 1인용: 한 판 진행 (손 고르기 → 결과 → 이어 할지 묻기) */
-function runSoloRound(message, ctx) {
-  const { guild, user, bet, prefix } = ctx;
-  const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: PICK_TIMEOUT_MS });
-  collector.on('collect', async i => {
-    if (i.user.id !== user.id) return rejectOthers(i);
-    collector.stop('picked');
-    ctx.last = i;
-
-    const mine = i.customId.split(':').pop();
-    const botHand = randomHand();
-    const result = judge(mine, botHand);
-    const outcome = result > 0 ? 'win' : result < 0 ? 'lose' : 'draw';
-    const delta = outcome === 'win' ? bet : outcome === 'lose' ? -bet : 0;
-    const [{ applied }] = pointsManager.applyGameResult(guild.id, [{ userId: user.id, delta, outcome }]);
-    const { streak, best, bonus, balance } = pointsManager.updateSoloStreak(guild.id, user.id, outcome, s => bet * streakBonusRate(s));
-    releasePlayers(guild.id, [user.id]);
-    ctx.stats[{ win: 'wins', lose: 'losses', draw: 'draws' }[outcome]] += 1;
-    ctx.stats.net += applied + bonus;
-    ctx.stats.bonus += bonus;
-    ctx.stats.bestStreak = Math.max(ctx.stats.bestStreak, streak);
-
-    const title = { win: '🎉 승리!', lose: '😢 패배…', draw: '🤝 무승부' }[outcome];
-    const change = applied > 0 ? `+${p(applied)}` : applied < 0 ? `-${p(-applied)}` : '변화 없음';
-    let streakText = '';
-    if (bonus > 0) streakText = `\n🔥 **${streak}연승!** 연승 보너스 +${p(bonus)} (베팅의 ${Math.round(streakBonusRate(streak) * 100)}%)`;
-    else if (outcome === 'win' && streak >= 2) streakText = `\n🔥 ${streak}연승 중`;
-    else if (outcome === 'draw' && streak >= 1) streakText = `\n🔥 ${streak}연승 유지`;
-    else if (outcome === 'lose' && best >= 3 && applied < 0) streakText = `\n연승이 끊겼습니다. (최고 ${best}연승)`;
-    const resultEmbed = new EmbedBuilder()
-      .setColor(COLOR[outcome])
-      .setTitle(`✊✌️✋ 가위바위보 vs 연두봇${ctx.round > 1 ? ` · ${ctx.round}판째` : ''} · ${title}`)
-      .setDescription(`${user} ${handText(mine)}  vs  ${handText(botHand)} 연두봇\n\n포인트 ${change} → 잔액 **${p(balance)}**${streakText}`)
-      .setFooter({ text: `🔁 같은 베팅으로 한 판 더 / 🛑 그만하기 (${AGAIN_TIMEOUT_MS / 1000}초)` });
-    await i.update({ content: '', embeds: [resultEmbed], components: [againButtons(prefix, `한 판 더 (${p(bet)})`)] }).catch(() => {});
-    askSoloAgain(message, ctx);
-  });
-  collector.on('end', async (_, reason) => {
-    if (reason === 'picked') return;
-    releasePlayers(guild.id, [user.id]);
-    await endSolo(ctx, '⏰ 손을 고르지 않아 끝났습니다');
-  });
-}
-
-/** 1인용: 결과 뒤 🔁 한 판 더 / 🛑 그만하기 */
-function askSoloAgain(message, ctx) {
-  const { guild, user, bet } = ctx;
-  const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: AGAIN_TIMEOUT_MS });
-  collector.on('collect', async i => {
-    if (i.user.id !== user.id) return rejectOthers(i);
-    if (i.customId.endsWith(':stop')) {
-      collector.stop('stop');
-      return endSolo(ctx, '🛑 그만하기', i);
-    }
-    const balance = pointsManager.get(guild.id, user.id).balance;
-    if (balance < bet) {
-      return i
-        .reply({ content: `💸 포인트가 부족해 같은 베팅(${p(bet)})으로 이어 할 수 없습니다. (잔액 ${p(balance)}) 🛑 를 누르거나 베팅을 바꿔 새로 시작해 주세요.`, ephemeral: true })
-        .catch(() => {});
-    }
-    if (lockPlayers(guild.id, [user.id])) {
-      return i.reply({ content: '⏳ 다른 게임이 진행 중입니다. 끝난 뒤 다시 눌러 주세요.', ephemeral: true }).catch(() => {});
-    }
-    collector.stop('again');
-    ctx.last = i;
-    ctx.round += 1;
-    await i.update(soloPickPayload(ctx)).catch(() => {});
-    runSoloRound(message, ctx);
-  });
-  collector.on('end', async (_, reason) => {
-    if (reason !== 'time') return;
-    await endSolo(ctx, '⏰ 시간이 지나 끝났습니다');
-  });
+export function playSolo(interaction, bet) {
+  return playSoloGame(interaction, RPS_SOLO, bet);
 }
 
 // ─────────────────────────────────────────────────────────────

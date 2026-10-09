@@ -4,6 +4,8 @@ import { settingsManager } from '../../stores/settingsManager.js';
 import { pointsManager, POINT_RULES } from '../../stores/pointsManager.js';
 import { toDayKey } from '../../stores/activityManager.js';
 import { playSolo, playDuel } from '../../services/games/rockPaperScissors.js';
+import { playSoloGame } from '../../services/games/soloSession.js';
+import { ODD_EVEN, DICE, SLOT } from '../../services/games/miniGames.js';
 import { isPlaying } from '../../services/games/sessions.js';
 import { getShopItems, purchase, durationText } from '../../services/shop.js';
 import { lotteryManager, LOTTERY_RULES } from '../../stores/lotteryManager.js';
@@ -18,6 +20,26 @@ const MAX_GIFT = 1_000_000_000;
 const RANKING_SIZE = 10;
 
 const p = n => `${n.toLocaleString()}P`;
+
+/** 봇 상대 1인용 미니게임: 서브커맨드 이름 → 게임 정의 */
+const MINI_GAMES = { 홀짝: ODD_EVEN, 주사위: DICE, 슬롯: SLOT };
+
+/** 베팅 옵션 (모든 게임 공통) */
+const betOption = opt =>
+  opt
+    .setName('베팅')
+    .setDescription(`걸 포인트 (${MIN_BET}~${MAX_BET.toLocaleString()}P)`)
+    .setRequired(true)
+    .setMinValue(MIN_BET)
+    .setMaxValue(MAX_BET);
+
+/** 게임 시작 전 공통 확인 (등록·잔액) — 문제가 있으면 안내 문구 */
+function checkBet(guildId, userId, bet) {
+  if (!pointsManager.isRegistered(guildId, userId)) return '🎮 먼저 `/게임 등록` 으로 게임랜드에 등록해 주세요.';
+  const balance = pointsManager.get(guildId, userId).balance;
+  if (balance < bet) return `💸 포인트가 부족합니다. (잔액 ${p(balance)}, 베팅 ${p(bet)})`;
+  return null;
+}
 const record = r => `${r.wins}승 ${r.losses}패 ${r.draws}무`;
 
 /** 게임은 /연결 채널 게임랜드 로 연결한 채널에서만 */
@@ -40,16 +62,12 @@ export default {
       sub
         .setName('가위바위보')
         .setDescription('가위바위보를 합니다. 상대를 비우면 봇과 1인용, 지정하면 그 멤버와 대결합니다.')
-        .addIntegerOption(opt =>
-          opt
-            .setName('베팅')
-            .setDescription(`걸 포인트 (${MIN_BET}~${MAX_BET.toLocaleString()}P)`)
-            .setRequired(true)
-            .setMinValue(MIN_BET)
-            .setMaxValue(MAX_BET)
-        )
+        .addIntegerOption(betOption)
         .addUserOption(opt => opt.setName('상대').setDescription('대결할 멤버 (비우면 봇과 대결)'))
     )
+    .addSubcommand(sub => sub.setName('홀짝').setDescription('1~100 중 뽑힌 수가 홀일지 짝일지 맞힙니다. (봇 상대)').addIntegerOption(betOption))
+    .addSubcommand(sub => sub.setName('주사위').setDescription('봇과 주사위 2개씩 굴려 합이 큰 쪽이 이깁니다.').addIntegerOption(betOption))
+    .addSubcommand(sub => sub.setName('슬롯').setDescription('슬롯머신을 돌립니다. 7️⃣7️⃣7️⃣ 은 베팅의 20배!').addIntegerOption(betOption))
     .addSubcommand(sub =>
       sub
         .setName('선물')
@@ -291,17 +309,19 @@ export default {
       });
     }
 
+    if (MINI_GAMES[subcommand]) {
+      const bet = interaction.options.getInteger('베팅');
+      const betError = checkBet(guild.id, user.id, bet);
+      if (betError) return interaction.reply({ content: betError, ephemeral: true });
+      return playSoloGame(interaction, MINI_GAMES[subcommand], bet);
+    }
+
     if (subcommand === '가위바위보') {
       const bet = interaction.options.getInteger('베팅');
       const opponent = interaction.options.getUser('상대');
 
-      if (!pointsManager.isRegistered(guild.id, user.id)) {
-        return interaction.reply({ content: '🎮 먼저 `/게임 등록` 으로 게임랜드에 등록해 주세요.', ephemeral: true });
-      }
-      const balance = pointsManager.get(guild.id, user.id).balance;
-      if (balance < bet) {
-        return interaction.reply({ content: `💸 포인트가 부족합니다. (잔액 ${p(balance)}, 베팅 ${p(bet)})`, ephemeral: true });
-      }
+      const betError = checkBet(guild.id, user.id, bet);
+      if (betError) return interaction.reply({ content: betError, ephemeral: true });
       if (!opponent) return playSolo(interaction, bet);
 
       if (opponent.id === user.id) return interaction.reply({ content: '🙅 자기 자신과는 대결할 수 없습니다.', ephemeral: true });
