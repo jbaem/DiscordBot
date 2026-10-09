@@ -28,6 +28,7 @@ function createRecord() {
     draws: 0,
     soloStreak: 0, // 봇과의 1인용 연승 (비기면 유지, 지면 0)
     bestSoloStreak: 0,
+    rentals: {}, // 상점에서 산 역할: 역할 ID → 만료 시각 (null = 영구)
     dailyMessageDay: null, // 첫 메시지 보너스를 받은 날 (YYYY-MM-DD)
     activityDay: null, // 오늘 활동 적립량 표시용 (YYYY-MM-DD)
     activityToday: 0,
@@ -205,6 +206,54 @@ class PointsManager {
     return { streak: record.soloStreak, best: record.bestSoloStreak, bonus, balance: record.balance };
   }
 
+  /**
+   * 포인트 사용 (잔액이 모자라면 실패)
+   * @returns {{ ok: true, balance: number } | { ok: false, balance: number }}
+   */
+  spend(guildId, userId, amount, timestamp = Date.now()) {
+    const record = this.getOrCreate(guildId, userId);
+    if (record.balance < amount) return { ok: false, balance: record.balance };
+    record.balance -= amount;
+    record.updatedAt = timestamp;
+    this.saveToFile();
+    return { ok: true, balance: record.balance };
+  }
+
+  /** 상점 대여 기록 (역할 ID → 만료 시각, null = 영구) */
+  getRentals(guildId, userId) {
+    return { ...(this.cache[guildId]?.[userId]?.rentals || {}) };
+  }
+
+  setRental(guildId, userId, roleId, expiresAt, timestamp = Date.now()) {
+    const record = this.getOrCreate(guildId, userId);
+    record.rentals = { ...(record.rentals || {}), [roleId]: expiresAt };
+    record.updatedAt = timestamp;
+    this.saveToFile();
+  }
+
+  removeRental(guildId, userId, roleId) {
+    const record = this.cache[guildId]?.[userId];
+    if (!record?.rentals || !(roleId in record.rentals)) return;
+    delete record.rentals[roleId];
+    this.saveToFile();
+  }
+
+  /**
+   * 만료된 대여 목록 (모든 서버)
+   * @returns {Array<{ guildId: string, userId: string, roleId: string }>}
+   */
+  expiredRentals(now = Date.now()) {
+    const expired = [];
+    for (const [guildId, users] of Object.entries(this.cache)) {
+      for (const [userId, record] of Object.entries(users || {})) {
+        for (const [roleId, expiresAt] of Object.entries(record?.rentals || {})) {
+          if (expiresAt !== null && expiresAt <= now) expired.push({ guildId, userId, roleId });
+        }
+      }
+    }
+    return expired;
+  }
+
   /** 등록한 멤버 순위 (잔액 높은 순) */
   ranking(guildId) {
     return Object.entries(this.cache[guildId] || {})
@@ -241,6 +290,10 @@ class PointsManager {
         draws: toNonNegativeInt(record.draws),
         soloStreak: toNonNegativeInt(record.soloStreak),
         bestSoloStreak: toNonNegativeInt(record.bestSoloStreak),
+        rentals: Object.fromEntries(
+          Object.entries(record.rentals && typeof record.rentals === 'object' ? record.rentals : {})
+            .filter(([roleId, expiresAt]) => /^\d{15,22}$/.test(roleId) && (expiresAt === null || toTimestampOrNull(expiresAt)))
+        ),
         dailyMessageDay: typeof record.dailyMessageDay === 'string' ? record.dailyMessageDay : null,
         activityDay: typeof record.activityDay === 'string' ? record.activityDay : null,
         activityToday: toNonNegativeInt(record.activityToday),

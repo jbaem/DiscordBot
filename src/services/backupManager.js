@@ -27,6 +27,7 @@ export const BACKUP_SETTING_KEYS = [
   'reactionRolePanels',
   'backupChannelId',
   'gameChannelId',
+  'shopItems',
 ];
 
 const SNOWFLAKE_PATTERN = /^\d{15,22}$/;
@@ -50,6 +51,18 @@ function sanitizeReactionRoles(list) {
       emojiKey: m.emojiId || m.emojiName,
       animated: Boolean(m.animated),
       description: typeof m.description === 'string' ? m.description.slice(0, 100) : null,
+    }));
+}
+
+/** 백업의 상점 상품 배열에서 형식이 올바른 항목만 정리 */
+function sanitizeShopItems(list) {
+  return list
+    .filter(item => item && typeof item === 'object' && SNOWFLAKE_PATTERN.test(item.roleId) && Number.isInteger(item.price) && item.price > 0)
+    .map(item => ({
+      roleId: item.roleId,
+      price: item.price,
+      days: Number.isInteger(item.days) && item.days > 0 ? item.days : 0,
+      description: typeof item.description === 'string' ? item.description.slice(0, 100) : null,
     }));
 }
 
@@ -181,6 +194,8 @@ export function applyBackup(guild, backup, mode = 'merge') {
       updates[key] = value;
     } else if (value === DISABLED && ID_SETTING_KEYS.includes(key)) {
       updates[key] = DISABLED;
+    } else if (key === 'shopItems' && Array.isArray(value)) {
+      updates[key] = sanitizeShopItems(value);
     } else if (key === 'reactionRoles' && Array.isArray(value)) {
       updates[key] = sanitizeReactionRoles(value);
     } else if (key === 'reactionRolePanels' && Array.isArray(value)) {

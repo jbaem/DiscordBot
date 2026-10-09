@@ -5,6 +5,7 @@ import { pointsManager, POINT_RULES } from '../../stores/pointsManager.js';
 import { toDayKey } from '../../stores/activityManager.js';
 import { playSolo, playDuel } from '../../services/games/rockPaperScissors.js';
 import { isPlaying } from '../../services/games/sessions.js';
+import { getShopItems, purchase, durationText } from '../../services/shop.js';
 
 /** 베팅 범위 */
 export const MIN_BET = 1;
@@ -62,7 +63,27 @@ export default {
         .setDescription('포인트와 전적을 확인합니다. (본인에게만 표시)')
         .addUserOption(opt => opt.setName('유저').setDescription('확인할 멤버 (비우면 나)'))
     )
-    .addSubcommand(sub => sub.setName('순위').setDescription(`포인트 순위 상위 ${RANKING_SIZE}명을 확인합니다.`)),
+    .addSubcommand(sub => sub.setName('순위').setDescription(`포인트 순위 상위 ${RANKING_SIZE}명을 확인합니다.`))
+    .addSubcommand(sub => sub.setName('상점').setDescription('포인트로 살 수 있는 역할 목록을 봅니다. (본인에게만 표시)'))
+    .addSubcommand(sub =>
+      sub
+        .setName('구매')
+        .setDescription('상점에서 역할을 삽니다.')
+        .addStringOption(opt => opt.setName('상품').setDescription('살 상품 (입력창 목록에서 선택)').setRequired(true).setAutocomplete(true))
+    ),
+
+  /** /게임 구매 상품 자동완성: 상점 목록 */
+  async autocomplete(interaction) {
+    const typed = interaction.options.getFocused().toLowerCase();
+    const choices = getShopItems(interaction.guildId)
+      .map(item => {
+        const role = interaction.guild?.roles.cache.get(item.roleId);
+        return role ? { name: `${role.name} · ${p(item.price)} · ${durationText(item.days)}`.slice(0, 100), value: item.roleId } : null;
+      })
+      .filter(c => c && (!typed || c.name.toLowerCase().includes(typed)))
+      .slice(0, 25);
+    await interaction.respond(choices);
+  },
 
   /** @param {import('discord.js').ChatInputCommandInteraction} interaction */
   async execute(interaction) {
@@ -92,6 +113,13 @@ export default {
           { name: '📈 오늘 활동 적립', value: p(today), inline: true },
           { name: '💬 오늘 첫 메시지 보너스', value: bonus, inline: false }
         );
+      const rentals = Object.entries(r.rentals || {});
+      if (rentals.length) {
+        embed.addFields({
+          name: '🛍️ 상점 아이템',
+          value: rentals.map(([roleId, expiresAt]) => `<@&${roleId}> · ${expiresAt ? `<t:${Math.floor(expiresAt / 1000)}:R> 만료` : '영구'}`).join('\n'),
+        });
+      }
       if (!r.registeredAt) embed.setFooter({ text: '아직 /게임 등록 을 하지 않아 활동 적립과 게임은 등록 후부터 가능합니다.' });
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }
@@ -108,6 +136,44 @@ export default {
         embeds: [new EmbedBuilder().setColor(0xFEE75C).setTitle(`🏆 포인트 순위 (등록 ${ranking.length}명)`).setDescription(lines.join('\n'))],
         allowedMentions: { parse: [] },
         ephemeral: Boolean(checkGameChannel(interaction)),
+      });
+    }
+
+    // 상점 목록 (어디서나, 본인에게만)
+    if (subcommand === '상점') {
+      const items = getShopItems(guild.id).filter(item => guild.roles.cache.has(item.roleId));
+      if (!items.length) return interaction.reply({ content: '🛒 아직 상점에 상품이 없습니다.', ephemeral: true });
+      const rentals = pointsManager.getRentals(guild.id, user.id);
+      const lines = items.map(item => {
+        const owned = item.roleId in rentals
+          ? ` · ✅ ${rentals[item.roleId] ? `<t:${Math.floor(rentals[item.roleId] / 1000)}:R> 만료` : '보유 중'}`
+          : '';
+        return `<@&${item.roleId}> · **${p(item.price)}** · ${durationText(item.days)}${item.description ? ` · ${item.description}` : ''}${owned}`;
+      });
+      return interaction.reply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor(0xEB459E)
+            .setTitle('🛒 포인트 상점')
+            .setDescription(lines.join('\n'))
+            .setFooter({ text: `내 잔액 ${p(pointsManager.get(guild.id, user.id).balance)} · /게임 구매 로 사기 · 기간제는 다시 사면 연장` }),
+        ],
+        ephemeral: true,
+      });
+    }
+
+    if (subcommand === '구매') {
+      if (!pointsManager.isRegistered(guild.id, user.id)) {
+        return interaction.reply({ content: '🎮 먼저 `/게임 등록` 으로 게임랜드에 등록해 주세요.', ephemeral: true });
+      }
+      const member = interaction.member ?? (await guild.members.fetch(user.id));
+      const result = await purchase(guild, member, interaction.options.getString('상품'));
+      if (!result.ok) return interaction.reply({ content: `❌ ${result.reason}`, ephemeral: true });
+      const until = result.expiresAt ? `<t:${Math.floor(result.expiresAt / 1000)}:f> 까지${result.extended ? ' (기간 연장)' : ''}` : '영구';
+      console.log(`[Shop] ${guild.name}: ${user.tag} 구매 ${result.role.name} ${result.item.price}P`);
+      return interaction.reply({
+        content: `🛍️ ${result.role} 을(를) 샀습니다! -${p(result.item.price)} → 잔액 **${p(result.balance)}** · ${until}`,
+        ephemeral: true,
       });
     }
 

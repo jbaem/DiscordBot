@@ -103,6 +103,7 @@ class SettingsManager {
         reactionRolePanels: [], // 게시된 패널 메시지 [{ messageId, channelId, title, description }]
         backupChannelId: null, // 자동 백업 파일을 올릴 채널
         gameChannelId: null, // 게임랜드 채널 (/게임 등록·게임은 이 채널에서만)
+        shopItems: [], // 포인트 상점 상품 [{ roleId, price, days(0 = 영구), description }]
       };
       this.saveToFile();
     }
