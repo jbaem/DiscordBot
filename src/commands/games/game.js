@@ -88,7 +88,7 @@ export default {
         .setTitle(`🎮 ${target.username} 님의 포인트`)
         .addFields(
           { name: '💰 잔액', value: `**${p(r.balance)}**${rank ? ` · ${rank}위` : ''}`, inline: true },
-          { name: '⚔️ 전적', value: record(r), inline: true },
+          { name: '⚔️ 전적', value: `${record(r)}\n🔥 봇 상대 ${r.soloStreak || 0}연승 중 (최고 ${r.bestSoloStreak || 0})`, inline: true },
           { name: '📈 오늘 활동 적립', value: p(today), inline: true },
           { name: '💬 오늘 첫 메시지 보너스', value: bonus, inline: false }
         );

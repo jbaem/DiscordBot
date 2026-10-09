@@ -9,6 +9,20 @@ export const HANDS = Object.freeze({
   paper: { emoji: '✋', name: '보', beats: 'rock' },
 });
 
+/**
+ * 봇과의 1인용 연승 보너스 — 연승 수 → 이번 판 베팅액에 곱할 비율
+ * (고정 금액이면 1P 베팅으로 보너스만 노릴 수 있어 베팅액에 비례)
+ * 10연승 이후에는 5연승마다(15, 20, …) 마지막 비율로 지급
+ */
+export const STREAK_BONUS_RATES = Object.freeze({ 3: 0.5, 5: 1, 7: 1.5, 10: 3 });
+
+/** 연승 수 → 보너스 비율 (없으면 0) */
+export function streakBonusRate(streak) {
+  if (STREAK_BONUS_RATES[streak]) return STREAK_BONUS_RATES[streak];
+  const last = Math.max(...Object.keys(STREAK_BONUS_RATES).map(Number));
+  return streak > last && streak % 5 === 0 ? STREAK_BONUS_RATES[last] : 0;
+}
+
 /** 손을 고를 수 있는 시간 */
 export const PICK_TIMEOUT_MS = 30 * 1000;
 /** 대결 신청을 수락할 수 있는 시간 */
@@ -72,17 +86,23 @@ export async function playSolo(interaction, bet) {
     const result = judge(mine, botHand);
     const outcome = result > 0 ? 'win' : result < 0 ? 'lose' : 'draw';
     const delta = outcome === 'win' ? bet : outcome === 'lose' ? -bet : 0;
-    const [{ applied, balance }] = pointsManager.applyGameResult(guild.id, [{ userId: user.id, delta, outcome }]);
+    const [{ applied }] = pointsManager.applyGameResult(guild.id, [{ userId: user.id, delta, outcome }]);
+    const { streak, best, bonus, balance } = pointsManager.updateSoloStreak(guild.id, user.id, outcome, s => bet * streakBonusRate(s));
     releasePlayers(guild.id, [user.id]);
 
     const title = { win: '🎉 승리!', lose: '😢 패배…', draw: '🤝 무승부' }[outcome];
     const change = applied > 0 ? `+${p(applied)}` : applied < 0 ? `-${p(-applied)}` : '변화 없음';
+    let streakText = '';
+    if (bonus > 0) streakText = `\n🔥 **${streak}연승!** 연승 보너스 +${p(bonus)} (베팅의 ${Math.round(streakBonusRate(streak) * 100)}%)`;
+    else if (outcome === 'win' && streak >= 2) streakText = `\n🔥 ${streak}연승 중`;
+    else if (outcome === 'draw' && streak >= 1) streakText = `\n🔥 ${streak}연승 유지`;
+    else if (outcome === 'lose' && best >= 3 && applied < 0) streakText = `\n연승이 끊겼습니다. (최고 ${best}연승)`;
     await i.update({
       embeds: [
         new EmbedBuilder()
           .setColor(COLOR[outcome])
           .setTitle(`✊✌️✋ 가위바위보 vs 연두봇 · ${title}`)
-          .setDescription(`${user} ${handText(mine)}  vs  ${handText(botHand)} 연두봇\n\n포인트 ${change} → 잔액 **${p(balance)}**`),
+          .setDescription(`${user} ${handText(mine)}  vs  ${handText(botHand)} 연두봇\n\n포인트 ${change} → 잔액 **${p(balance)}**${streakText}`),
       ],
       components: [],
     }).catch(() => {});

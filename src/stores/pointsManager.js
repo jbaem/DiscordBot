@@ -26,6 +26,8 @@ function createRecord() {
     wins: 0,
     losses: 0,
     draws: 0,
+    soloStreak: 0, // 봇과의 1인용 연승 (비기면 유지, 지면 0)
+    bestSoloStreak: 0,
     dailyMessageDay: null, // 첫 메시지 보너스를 받은 날 (YYYY-MM-DD)
     activityDay: null, // 오늘 활동 적립량 표시용 (YYYY-MM-DD)
     activityToday: 0,
@@ -185,6 +187,24 @@ class PointsManager {
     return results;
   }
 
+  /**
+   * 봇과의 1인용 결과로 연승 갱신 후 연승 보너스 지급
+   * @param {'win'|'lose'|'draw'} outcome
+   * @param {(streak: number) => number} bonusFor 연승 수 → 보너스 포인트
+   * @returns {{ streak: number, best: number, bonus: number, balance: number }}
+   */
+  updateSoloStreak(guildId, userId, outcome, bonusFor, timestamp = Date.now()) {
+    const record = this.getOrCreate(guildId, userId);
+    if (outcome === 'win') record.soloStreak = (record.soloStreak || 0) + 1;
+    else if (outcome === 'lose') record.soloStreak = 0;
+    record.bestSoloStreak = Math.max(record.bestSoloStreak || 0, record.soloStreak);
+    const bonus = outcome === 'win' ? Math.max(0, Math.floor(bonusFor(record.soloStreak))) : 0;
+    record.balance += bonus;
+    record.updatedAt = timestamp;
+    this.saveToFile();
+    return { streak: record.soloStreak, best: record.bestSoloStreak, bonus, balance: record.balance };
+  }
+
   /** 등록한 멤버 순위 (잔액 높은 순) */
   ranking(guildId) {
     return Object.entries(this.cache[guildId] || {})
@@ -219,6 +239,8 @@ class PointsManager {
         wins: toNonNegativeInt(record.wins),
         losses: toNonNegativeInt(record.losses),
         draws: toNonNegativeInt(record.draws),
+        soloStreak: toNonNegativeInt(record.soloStreak),
+        bestSoloStreak: toNonNegativeInt(record.bestSoloStreak),
         dailyMessageDay: typeof record.dailyMessageDay === 'string' ? record.dailyMessageDay : null,
         activityDay: typeof record.activityDay === 'string' ? record.activityDay : null,
         activityToday: toNonNegativeInt(record.activityToday),
