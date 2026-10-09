@@ -6,6 +6,8 @@ import { toDayKey } from '../../stores/activityManager.js';
 import { playSolo, playDuel } from '../../services/games/rockPaperScissors.js';
 import { isPlaying } from '../../services/games/sessions.js';
 import { getShopItems, purchase, durationText } from '../../services/shop.js';
+import { lotteryManager, LOTTERY_RULES } from '../../stores/lotteryManager.js';
+import { buyTickets, groupNumbers } from '../../services/games/lottery.js';
 
 /** 베팅 범위 */
 export const MIN_BET = 1;
@@ -64,6 +66,21 @@ export default {
         .addUserOption(opt => opt.setName('유저').setDescription('확인할 멤버 (비우면 나)'))
     )
     .addSubcommand(sub => sub.setName('순위').setDescription(`포인트 순위 상위 ${RANKING_SIZE}명을 확인합니다.`))
+    .addSubcommand(sub =>
+      sub
+        .setName('복권')
+        .setDescription(`매주 일요일 밤 ${LOTTERY_RULES.DRAW_HOUR}시 추첨! 장수를 넣으면 구매, 비우면 이번 회차 정보 (본인에게만 표시)`)
+        .addIntegerOption(opt =>
+          opt
+            .setName('장수')
+            .setDescription(`살 장수 (장당 ${LOTTERY_RULES.TICKET_PRICE.toLocaleString()}P)`)
+            .setMinValue(1)
+            .setMaxValue(LOTTERY_RULES.MAX_TICKETS_PER_USER)
+        )
+        .addIntegerOption(opt =>
+          opt.setName('번호').setDescription(`고를 번호 1~${LOTTERY_RULES.NUMBERS} (비우면 장마다 무작위)`).setMinValue(1).setMaxValue(LOTTERY_RULES.NUMBERS)
+        )
+    )
     .addSubcommand(sub => sub.setName('상점').setDescription('포인트로 살 수 있는 역할 목록을 봅니다. (본인에게만 표시)'))
     .addSubcommand(sub =>
       sub
@@ -137,6 +154,49 @@ export default {
         allowedMentions: { parse: [] },
         ephemeral: Boolean(checkGameChannel(interaction)),
       });
+    }
+
+    // 복권 (어디서나, 본인에게만)
+    if (subcommand === '복권') {
+      const count = interaction.options.getInteger('장수');
+      const number = interaction.options.getInteger('번호');
+      if (count) {
+        if (!pointsManager.isRegistered(guild.id, user.id)) {
+          return interaction.reply({ content: '🎮 먼저 `/게임 등록` 으로 게임랜드에 등록해 주세요.', ephemeral: true });
+        }
+        const result = buyTickets(guild.id, user.id, count, number);
+        if (!result.ok) return interaction.reply({ content: `❌ ${result.reason}`, ephemeral: true });
+        console.log(`[Lottery] ${guild.name}: ${user.tag} 제${result.round}회 ${count}장 구매`);
+        return interaction.reply({
+          content:
+            `🎟️ 제${result.round}회 복권 ${count}장을 샀습니다! (${groupNumbers(result.numbers)}) ` +
+            `-${p(count * LOTTERY_RULES.TICKET_PRICE)} → 잔액 **${p(result.balance)}** · 현재 당첨금 **${p(result.pot)}**`,
+          ephemeral: true,
+        });
+      }
+      const round = lotteryManager.getRound(guild.id);
+      const mine = lotteryManager.ticketsOf(guild.id, user.id);
+      const last = round.last;
+      const embed = new EmbedBuilder()
+        .setColor(0x5865F2)
+        .setTitle(`🎟️ 제${round.round}회 복권`)
+        .setDescription(
+          `추첨: <t:${Math.floor(round.drawAt / 1000)}:F> (<t:${Math.floor(round.drawAt / 1000)}:R>)\n` +
+            `당첨금 **${p(lotteryManager.pot(guild.id))}**${round.carry ? ` (이월 ${p(round.carry)} 포함)` : ''} · 판매 ${round.tickets.length.toLocaleString()}장\n\n` +
+            `장당 ${p(LOTTERY_RULES.TICKET_PRICE)} · 번호 1~${LOTTERY_RULES.NUMBERS} · 1인 최대 ${LOTTERY_RULES.MAX_TICKETS_PER_USER}장\n` +
+            `당첨 번호 티켓끼리 당첨금을 나누고, 당첨자가 없으면 다음 회차로 이월 (판매액의 ${Math.round(LOTTERY_RULES.POT_RATE * 100)}%가 당첨금)`
+        )
+        .addFields({ name: '🎫 내 티켓', value: mine.length ? `${mine.length}장 · ${groupNumbers(mine)}`.slice(0, 1024) : '없음 · `/게임 복권 장수:<n>` 으로 구매' });
+      if (last) {
+        const myPrize = last.winners?.find(w => w.userId === user.id);
+        embed.addFields({
+          name: `📜 지난 회차 (제${last.round}회)`,
+          value:
+            `당첨 번호 **${last.number}번** · ${last.winners?.length ? `당첨 ${last.winners.length}명` : '당첨자 없음 (이월)'}` +
+            (myPrize ? ` · 🎉 내 당첨금 +${p(myPrize.prize)}` : ''),
+        });
+      }
+      return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     // 상점 목록 (어디서나, 본인에게만)

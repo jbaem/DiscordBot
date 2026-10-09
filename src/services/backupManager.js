@@ -2,6 +2,7 @@ import { settingsManager, DISABLED, ID_SETTING_KEYS } from '../stores/settingsMa
 import { memberHistoryManager } from '../stores/memberHistoryManager.js';
 import { activityManager } from '../stores/activityManager.js';
 import { pointsManager } from '../stores/pointsManager.js';
+import { lotteryManager } from '../stores/lotteryManager.js';
 
 /**
  * 백업 파일 포맷 버전 (구조가 바뀌면 올리고 parseBackup에서 하위 호환 처리)
@@ -9,8 +10,10 @@ import { pointsManager } from '../stores/pointsManager.js';
  * - v2: activity(활동일/메시지/음성 시간) 추가 (예전 백업의 points 값은 포인트 기능 제거로 무시)
  * - v3: 채널/역할 ID 의 false = 명시적 비활성화, null = 미설정(.env 폴백) 으로 구분
  * - v4: points(게임 포인트) 추가
+ * - v5: lottery(복권 회차·티켓) 추가
+ * 예전 백업에 없는 항목(v3 의 points, v4 이하의 lottery)은 전체 교체여도 지금 데이터를 건드리지 않음
  */
-export const BACKUP_VERSION = 4;
+export const BACKUP_VERSION = 5;
 
 /** 백업/복원 대상이 되는 서버 설정 키 (화이트리스트) */
 export const BACKUP_SETTING_KEYS = [
@@ -109,6 +112,7 @@ export function createBackup(guild) {
     memberHistory: memberHistoryManager.getGuildHistory(guild.id),
     activity: activityManager.getGuildActivity(guild.id),
     points: pointsManager.getGuildPoints(guild.id),
+    lottery: lotteryManager.getGuildLottery(guild.id),
   };
 }
 
@@ -162,12 +166,13 @@ export function parseBackup(rawText) {
     throw new BackupError('백업 파일의 `activity` 형식이 올바르지 않습니다.');
   }
 
-  // v3 이하 백업에는 points 가 없음 → 빈 객체로 취급
-  if (data.points === undefined) {
-    data.points = {};
-  }
-  if (!data.points || typeof data.points !== 'object' || Array.isArray(data.points)) {
+  // v3 이하 백업에는 points 가 없음 → 그대로 두고, 적용할 때 지금 포인트를 건드리지 않음
+  if (data.points !== undefined && (!data.points || typeof data.points !== 'object' || Array.isArray(data.points))) {
     throw new BackupError('백업 파일의 `points` 형식이 올바르지 않습니다.');
+  }
+  // v4 이하 백업에는 lottery 가 없음 (null 은 복권을 쓴 적 없는 서버)
+  if (data.lottery !== undefined && data.lottery !== null && (typeof data.lottery !== 'object' || Array.isArray(data.lottery))) {
+    throw new BackupError('백업 파일의 `lottery` 형식이 올바르지 않습니다.');
   }
 
   return data;
@@ -218,7 +223,11 @@ export function applyBackup(guild, backup, mode = 'merge') {
 
   const history = memberHistoryManager.importGuildHistory(guild.id, backup.memberHistory, mode);
   const activity = activityManager.importGuildActivity(guild.id, backup.activity, mode);
-  const points = pointsManager.importGuildPoints(guild.id, backup.points, mode);
+  // 백업에 없는 항목은 건너뜀 (예전 백업을 전체 교체로 불러와도 지금 포인트·복권이 지워지지 않게)
+  const points = backup.points
+    ? pointsManager.importGuildPoints(guild.id, backup.points, mode)
+    : { imported: 0, total: Object.keys(pointsManager.getGuildPoints(guild.id)).length, skipped: true };
+  if (backup.lottery) lotteryManager.importGuildLottery(guild.id, backup.lottery);
 
   return {
     appliedSettings: Object.keys(updates),

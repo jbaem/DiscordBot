@@ -10,6 +10,7 @@ import { settingsManager, DISABLED } from '../stores/settingsManager.js';
 import { memberHistoryManager } from '../stores/memberHistoryManager.js';
 import { activityManager } from '../stores/activityManager.js';
 import { pointsManager } from '../stores/pointsManager.js';
+import { lotteryManager } from '../stores/lotteryManager.js';
 
 /**
  * 디스코드 채널 자동 백업
@@ -39,7 +40,7 @@ const REQUIRED_PERMISSIONS = [
 ];
 
 /** 백업 대상 데이터 파일 (data/ 안) */
-const DATA_FILES = ['guildSettings.json', 'memberHistory.json', 'activity.json', 'points.json'];
+const DATA_FILES = ['guildSettings.json', 'memberHistory.json', 'activity.json', 'points.json', 'lottery.json'];
 
 /**
  * 프로세스 시작 시점(로그인 전)의 디스크 데이터 상태
@@ -49,7 +50,7 @@ const DATA_FILES = ['guildSettings.json', 'memberHistory.json', 'activity.json',
  */
 const bootState = {
   guildIds: new Set(
-    [settingsManager.cache, memberHistoryManager.cache, activityManager.cache, pointsManager.cache].flatMap(cache =>
+    [settingsManager.cache, memberHistoryManager.cache, activityManager.cache, pointsManager.cache, lotteryManager.cache].flatMap(cache =>
       Object.keys(cache || {})
     )
   ),
@@ -77,8 +78,8 @@ function stateOf(guildId) {
 
 /** 백업 내용 비교용 해시 (내보낸 시각·서버 이름·버전 제외) */
 function contentHash(backup) {
-  const { settings, memberHistory, activity, points } = backup;
-  return createHash('sha256').update(JSON.stringify({ settings, memberHistory, activity, points })).digest('hex');
+  const { settings, memberHistory, activity, points, lottery } = backup;
+  return createHash('sha256').update(JSON.stringify({ settings, memberHistory, activity, points, lottery })).digest('hex');
 }
 
 /** 백업 요약 문구 */

@@ -364,7 +364,13 @@ export default {
             { name: '⚙️ 복원된 설정', value: result.appliedSettings.length ? result.appliedSettings.map(k => `\`${k}\``).join(', ') : '없음' },
             { name: '👥 멤버 이력', value: `${result.history.imported.toLocaleString()}명 반영 (${modeText}) · 현재 총 ${result.history.total.toLocaleString()}명`, inline: true },
             { name: '📊 활동 기록', value: `${result.activity.imported.toLocaleString()}명 반영 (${modeText}) · 현재 총 ${result.activity.total.toLocaleString()}명`, inline: true },
-            { name: '🎮 게임 포인트', value: `${result.points.imported.toLocaleString()}명 반영 (${modeText}) · 현재 총 ${result.points.total.toLocaleString()}명`, inline: true },
+            {
+              name: '🎮 게임 포인트',
+              value: result.points.skipped
+                ? '백업에 포인트가 없어 지금 포인트를 그대로 유지'
+                : `${result.points.imported.toLocaleString()}명 반영 (${modeText}) · 현재 총 ${result.points.total.toLocaleString()}명`,
+              inline: true,
+            },
             { name: '🕒 백업 생성 시각', value: Number.isFinite(exportedMs) ? `<t:${Math.floor(exportedMs / 1000)}:f>` : '알 수 없음', inline: true },
             {
               name: '↩️ 되돌리기',
